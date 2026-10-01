@@ -1,8 +1,13 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { Link } from "react-router-dom"
 import { useState } from "react"
+import { Link, useSearchParams } from "react-router-dom"
 import { api } from "../api"
-import { StatusPill } from "../components/StatusPill"
+import { Icon } from "../components/Icon"
+import { ProjectCard, ProjectCardSkeleton } from "../components/ProjectCard"
+import { ProjectStats } from "../components/ProjectStats"
+import { TopBar } from "../components/TopBar"
+import { matchesFilter, parseFilter } from "../projectFilters"
+import { projectsQuery } from "../queries"
 import type { ProjectSummary } from "../types"
 
 const EXAMPLES = [
@@ -11,101 +16,74 @@ const EXAMPLES = [
   "The keyboard shortcut that gave me two hours back every week.",
 ]
 
-type Filter = "all" | "open" | "ready" | "saved"
-
 export function Dashboard() {
   const queryClient = useQueryClient()
-  const [filter, setFilter] = useState<Filter>("all")
-  const projects = useQuery({
-    queryKey: ["projects"],
-    queryFn: () => api<ProjectSummary[]>("/api/projects"),
-  })
-  const visible = (projects.data ?? []).filter((project) => matches(project, filter))
+  const [params] = useSearchParams()
+  const [search, setSearch] = useState("")
+  const filter = parseFilter(params.get("filter"))
+  const projects = useQuery(projectsQuery)
+  const all = projects.data ?? []
+  const term = search.trim().toLowerCase()
+  const visible = all.filter(
+    (project) => matchesFilter(project, filter) && (!term || `${project.title} ${project.description}`.toLowerCase().includes(term)),
+  )
 
   async function toggleFavorite(project: ProjectSummary) {
     await api(`/api/projects/${project.id}`, {
       method: "PATCH",
       body: JSON.stringify({ favorite: !project.favorite }),
     })
-    await queryClient.invalidateQueries({ queryKey: ["projects"] })
+    await queryClient.invalidateQueries({ queryKey: projectsQuery.queryKey })
   }
 
   return (
-    <main className="mx-auto max-w-6xl px-5 py-10">
-      <p className="text-xs uppercase tracking-[0.2em] text-gold">Studio</p>
-      <h1 className="mt-3 max-w-xl font-serif text-5xl leading-[1.05] tracking-tight">
-        Thumbnails with a point of view.
-      </h1>
-      <p className="mt-4 max-w-xl text-mist">
-        Describe the video. The studio writes the hooks, chooses a frame, and renders a thumbnail you can still edit.
-      </p>
+    <>
+      <TopBar crumbs={[{ label: "Projects" }]}>
+        <label className="relative hidden sm:block">
+          <Icon name="search" className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-mist/60" />
+          <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search projects" aria-label="Search projects" className="field h-9 w-64 py-0 pl-8" />
+        </label>
+      </TopBar>
+      <main className="mx-auto w-full max-w-7xl space-y-8 px-6 py-8">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Projects</h1>
+          <p className="mt-1 text-sm text-mist">Describe a video and the studio writes the hooks, directs the frame, and renders an editable thumbnail.</p>
+        </div>
 
-      {projects.data && projects.data.length > 0 && (
-        <div className="mt-8 flex flex-wrap gap-2">
-          {(["all", "open", "ready", "saved"] as const).map((item) => (
-            <button
-              key={item}
-              type="button"
-              onClick={() => setFilter(item)}
-              className={`rounded-full px-3 py-1.5 text-sm ${filter === item ? "bg-paper text-ink" : "border border-line text-mist"}`}
-            >
-              {item === "all" ? "All" : item === "open" ? "In progress" : item === "ready" ? "Ready" : "Saved"}
-            </button>
+        {all.length > 0 && <ProjectStats projects={all} active={filter} />}
+
+        {projects.isError && (
+          <p role="alert" className="rounded-lg border border-ember/40 bg-ember/5 px-4 py-3 text-sm text-ember">The studio could not load projects. Is the API running?</p>
+        )}
+
+        {projects.data?.length === 0 && (
+          <div className="card grid place-items-center px-6 py-14 text-center">
+            <span className="grid h-11 w-11 place-items-center rounded-xl bg-ember/10 text-ember ring-1 ring-ember/20">
+              <Icon name="sparkles" className="h-5 w-5" />
+            </span>
+            <h2 className="mt-4 text-lg font-semibold">Create your first thumbnail</h2>
+            <p className="mt-1 text-sm text-mist">Start from an example or write your own brief.</p>
+            <div className="mt-6 grid w-full max-w-3xl gap-3 text-left md:grid-cols-3">
+              {EXAMPLES.map((prompt) => (
+                <Link key={prompt} to={`/new?prompt=${encodeURIComponent(prompt)}`} className="rounded-lg border border-line bg-ink p-3.5 text-sm leading-6 text-mist transition hover:border-ember/50 hover:text-paper">
+                  {prompt}
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+          {projects.isLoading && [0, 1, 2].map((slot) => <ProjectCardSkeleton key={slot} />)}
+          {visible.map((project) => (
+            <ProjectCard key={project.id} project={project} onToggleFavorite={(item) => void toggleFavorite(item)} />
           ))}
         </div>
-      )}
 
-      {projects.isLoading && <p className="mt-10 text-mist">Loading projects…</p>}
-      {projects.isError && <p className="mt-10 text-ember">The studio could not load projects. Is the API running?</p>}
-
-      {projects.data && projects.data.length === 0 && (
-        <div className="mt-10 rounded-3xl border border-line bg-panel p-6">
-          <h2 className="font-serif text-3xl">Start with a description</h2>
-          <div className="mt-4 grid gap-3">
-            {EXAMPLES.map((prompt) => (
-              <Link key={prompt} to={`/new?prompt=${encodeURIComponent(prompt)}`} className="rounded-2xl border border-line bg-panel-2 px-4 py-3 text-sm leading-6 hover:border-gold">
-                {prompt}
-              </Link>
-            ))}
-          </div>
-        </div>
-      )}
-
-      <div className="mt-6 grid gap-4 sm:grid-cols-2">
-        {visible.map((project) => (
-          <article key={project.id} className="overflow-hidden rounded-2xl border border-line bg-panel">
-            <Link to={`/projects/${project.id}`} className="block">
-              {project.cover_url ? (
-                <img src={project.cover_url} alt="" className="aspect-video w-full object-cover" />
-              ) : (
-                <div className="grid aspect-video place-items-center bg-panel-2 px-6 text-center font-serif text-2xl">
-                  {project.title}
-                </div>
-              )}
-            </Link>
-            <div className="flex items-start justify-between gap-3 px-4 py-4">
-              <div>
-                <Link to={`/projects/${project.id}`} className="font-medium">
-                  {project.title}
-                </Link>
-                <div className="mt-2">
-                  <StatusPill status={project.status} />
-                </div>
-              </div>
-              <button type="button" onClick={() => void toggleFavorite(project)} className="text-sm text-gold">
-                {project.favorite ? "Saved" : "Save"}
-              </button>
-            </div>
-          </article>
-        ))}
-      </div>
-    </main>
+        {all.length > 0 && visible.length === 0 && (
+          <p className="rounded-lg border border-dashed border-line py-10 text-center text-sm text-mist">No projects match this view.</p>
+        )}
+      </main>
+    </>
   )
-}
-
-function matches(project: ProjectSummary, filter: Filter) {
-  if (filter === "ready") return project.status === "ready"
-  if (filter === "saved") return project.favorite
-  if (filter === "open") return project.status !== "ready"
-  return true
 }

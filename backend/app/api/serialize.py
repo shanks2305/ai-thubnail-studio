@@ -1,4 +1,11 @@
+from datetime import datetime, timezone
+
 from app.db.models import AgentRun, Asset, Concept, Generation, Project
+
+
+def _utc_iso(value: datetime) -> str:
+    # SQLite drops tzinfo on read; stored values are always UTC.
+    return value.replace(tzinfo=value.tzinfo or timezone.utc).isoformat()
 
 
 def present_project_summary(project: Project) -> dict:
@@ -10,7 +17,7 @@ def present_project_summary(project: Project) -> dict:
         "status": project.status,
         "favorite": project.favorite,
         "youtube_url": project.youtube_url,
-        "updated_at": project.updated_at.isoformat(),
+        "updated_at": _utc_iso(project.updated_at),
         "cover_url": f"/api/assets/{cover_id}" if cover_id else None,
     }
 
@@ -28,7 +35,7 @@ def present_project(project: Project) -> dict:
         "generations": [present_generation(generation) for generation in project.generations],
         "agent_runs": [_run(run) for run in project.agent_runs],
         "references": [_reference(asset) for asset in project.assets if asset.kind == "reference"],
-        "created_at": project.created_at.isoformat(),
+        "created_at": _utc_iso(project.created_at),
     }
 
 

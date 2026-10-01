@@ -1,48 +1,75 @@
 import { Link } from "react-router-dom"
+import { Icon } from "./Icon"
+import { Spinner } from "./Spinner"
 import type { Concept, Generation } from "../types"
 
-export function ResultPanel({
-  projectId,
-  generations,
-  concepts,
-}: {
+function scoreTone(score: number, passed: boolean) {
+  if (!passed) return "bg-ember/10 text-ember ring-ember/30"
+  return score >= 80 ? "bg-emerald-400/10 text-emerald-300 ring-emerald-400/25" : "bg-gold/10 text-gold ring-gold/25"
+}
+
+export function EmptyCanvas({ message, busy }: { message: string; busy: boolean }) {
+  return (
+    <section className="card bg-dots grid aspect-[16/7] place-items-center p-6">
+      <div className="flex items-center gap-2.5 rounded-lg border border-line bg-panel px-4 py-2.5 text-sm text-mist shadow-lg shadow-black/40">
+        {busy ? <Spinner className="border-gold/30 border-t-gold" /> : <Icon name="layers" className="h-4 w-4" />}
+        {message}
+      </div>
+    </section>
+  )
+}
+
+type Props = {
   projectId: string
-  generations: Generation[]
-  concepts: Concept[]
-}) {
-  const latest = generations[generations.length - 1]
-  if (!latest?.image_url) return null
-  const concept = concepts.find((item) => item.id === latest.concept_id)
-  const critique = latest.critique
+  generation: Generation
+  imageUrl: string
+  passes: number
+  concept: Concept | undefined
+}
+
+export function ResultPanel({ projectId, generation, imageUrl, passes, concept }: Props) {
+  const critique = generation.critique
 
   return (
-    <section className="mt-10 grid gap-6 rounded-3xl border border-line bg-panel p-4 md:grid-cols-[minmax(0,1.4fr)_minmax(16rem,0.8fr)] md:p-5">
-      <img src={latest.image_url} alt={concept?.hook ?? "Generated thumbnail"} className="aspect-video w-full rounded-2xl bg-ink object-cover" />
-      <div className="flex flex-col justify-between gap-4">
-        <div>
-          <p className="text-xs uppercase tracking-[0.16em] text-gold">{concept?.name ?? "Thumbnail"}</p>
-          <h2 className="mt-2 font-serif text-3xl">{latest.design_spec.text.content}</h2>
+    <section className="card overflow-hidden">
+      <div className="bg-dots grid place-items-center border-b border-line bg-ink/50 p-6">
+        <img src={imageUrl} alt={concept?.hook ?? "Generated thumbnail"} className="aspect-video w-full max-w-3xl rounded-lg object-cover shadow-2xl shadow-black/60 ring-1 ring-line" />
+      </div>
+      <div className="flex flex-wrap items-center justify-between gap-4 px-4 py-3">
+        <div className="flex min-w-0 items-center gap-3">
           {critique && (
-            <p className="mt-3 text-sm text-mist">
-              Quality review {critique.overall}/100{critique.passed ? "" : " — still has issues"}
-              {generations.length > 1 ? ` after ${generations.length} passes` : ""}.
-            </p>
+            <span title="Quality score" className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg text-sm font-semibold tabular-nums ring-1 ring-inset ${scoreTone(critique.overall, critique.passed)}`}>
+              {critique.overall}
+            </span>
           )}
-          {critique?.issues.map((issue) => (
-            <p key={issue.type} className="mt-2 text-sm text-paper">
-              {issue.message}
+          <div className="min-w-0">
+            <p className="truncate text-sm font-medium">{generation.design_spec.text.content}</p>
+            <p className="truncate text-xs text-mist">
+              {concept?.name ?? "Thumbnail"}
+              {critique && ` · review ${critique.passed ? "passed" : "has issues"}`}
+              {passes > 1 && ` · ${passes} passes`}
             </p>
-          ))}
+          </div>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Link to={`/projects/${projectId}/editor/${latest.id}`} className="rounded-full bg-paper px-4 py-2 text-sm font-medium text-ink">
-            Edit type
+        <div className="flex gap-2">
+          <Link to={`/projects/${projectId}/editor/${generation.id}`} className="btn-light">
+            <Icon name="pen" /> Edit
           </Link>
-          <a href={`/api/generations/${latest.id}/export?format=png`} className="rounded-full border border-line px-4 py-2 text-sm">
-            Download PNG
+          <a href={`/api/generations/${generation.id}/export?format=png`} className="btn-outline">
+            <Icon name="download" /> PNG
           </a>
         </div>
       </div>
+      {critique && critique.issues.length > 0 && (
+        <ul className="space-y-1.5 border-t border-line bg-ink/30 px-4 py-3">
+          {critique.issues.map((issue) => (
+            <li key={issue.type} className="flex gap-2 text-xs text-mist">
+              <span aria-hidden className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-ember" />
+              {issue.message}
+            </li>
+          ))}
+        </ul>
+      )}
     </section>
   )
 }

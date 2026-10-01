@@ -1,8 +1,15 @@
 import { useQueryClient } from "@tanstack/react-query"
-import { useState, type DragEvent, type FormEvent } from "react"
-import { useNavigate, useSearchParams } from "react-router-dom"
+import { useState, type FormEvent } from "react"
+import { Link, useNavigate, useSearchParams } from "react-router-dom"
 import { ApiError, api } from "../api"
+import { FormSection } from "../components/FormSection"
+import { Icon } from "../components/Icon"
+import { ReferencePicker } from "../components/ReferencePicker"
+import { Spinner } from "../components/Spinner"
+import { TopBar } from "../components/TopBar"
 import type { ProjectDetail } from "../types"
+
+const MIN_DESCRIPTION = 8
 
 export function CreateProject() {
   const [params] = useSearchParams()
@@ -13,12 +20,7 @@ export function CreateProject() {
   const [files, setFiles] = useState<File[]>([])
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
-  const [dragging, setDragging] = useState(false)
-
-  function addFiles(list: FileList | null) {
-    if (!list) return
-    setFiles((current) => [...current, ...Array.from(list)].slice(0, 6))
-  }
+  const tooShort = description.trim().length < MIN_DESCRIPTION
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault()
@@ -48,47 +50,43 @@ export function CreateProject() {
   }
 
   return (
-    <main className="mx-auto max-w-3xl px-5 py-10">
-      <p className="text-xs uppercase tracking-[0.2em] text-gold">New project</p>
-      <h1 className="mt-3 font-serif text-5xl tracking-tight">What is the video about?</h1>
-      <p className="mt-4 text-mist">A description is enough. A YouTube link and a reference thumbnail make the direction sharper.</p>
-      <form onSubmit={(event) => void onSubmit(event)} className="mt-8 space-y-5">
-        <textarea
-          required
-          minLength={8}
-          value={description}
-          onChange={(event) => setDescription(event.target.value)}
-          placeholder="I tested 20 AI coding tools to see which one can actually replace a developer."
-          className="min-h-40 w-full rounded-2xl border border-line bg-panel px-4 py-4 outline-none focus:border-gold"
-        />
-        <input
-          value={youtube}
-          onChange={(event) => setYoutube(event.target.value)}
-          placeholder="YouTube URL, optional"
-          className="w-full rounded-2xl border border-line bg-panel px-4 py-3 outline-none focus:border-gold"
-        />
-        <label
-          onDragOver={(event: DragEvent) => {
-            event.preventDefault()
-            setDragging(true)
-          }}
-          onDragLeave={() => setDragging(false)}
-          onDrop={(event: DragEvent) => {
-            event.preventDefault()
-            setDragging(false)
-            addFiles(event.dataTransfer.files)
-          }}
-          className={`block rounded-2xl border border-dashed px-4 py-8 text-center text-sm text-mist ${dragging ? "border-gold bg-panel-2" : "border-line bg-panel"}`}
-        >
-          <input type="file" accept="image/png,image/jpeg,image/webp" multiple className="sr-only" onChange={(event) => addFiles(event.target.files)} />
-          Drop reference thumbnails, or browse. PNG, JPG, or WebP.
-          {files.length > 0 && <span className="mt-3 block text-paper">{files.map((file) => file.name).join(", ")}</span>}
-        </label>
-        {error && <p className="text-sm text-ember">{error}</p>}
-        <button type="submit" disabled={pending || description.trim().length < 8} className="rounded-full bg-ember px-5 py-2.5 text-sm font-medium text-white disabled:opacity-50">
-          {pending ? "Starting…" : "Generate concepts"}
-        </button>
-      </form>
-    </main>
+    <>
+      <TopBar crumbs={[{ label: "Projects", to: "/" }, { label: "New project" }]} />
+      <main className="mx-auto w-full max-w-4xl px-6 py-8">
+        <h1 className="text-2xl font-semibold tracking-tight">New project</h1>
+        <p className="mt-1 text-sm text-mist">A description is enough. A YouTube link and reference thumbnails sharpen the direction.</p>
+        <form onSubmit={(event) => void onSubmit(event)} className="card mt-6 overflow-hidden">
+          <FormSection step={1} title="Describe the video" hint="The hook, the stakes, and who it is for.">
+            <textarea
+              required
+              autoFocus
+              minLength={MIN_DESCRIPTION}
+              value={description}
+              onChange={(event) => setDescription(event.target.value)}
+              aria-label="Video description"
+              placeholder="I tested 20 AI coding tools to see which one can actually replace a developer."
+              className="field min-h-36 resize-y leading-6"
+            />
+          </FormSection>
+          <FormSection step={2} title="YouTube link" hint="Pulls the title and context from the video." optional>
+            <input inputMode="url" value={youtube} onChange={(event) => setYoutube(event.target.value)} aria-label="YouTube link" placeholder="https://youtube.com/watch?v=…" className="field" />
+          </FormSection>
+          <FormSection step={3} title="References" hint="Thumbnails whose style you want to borrow." optional>
+            <ReferencePicker files={files} onChange={setFiles} />
+          </FormSection>
+          {error && <p role="alert" className="mx-6 mb-4 rounded-lg border border-ember/40 bg-ember/5 px-4 py-3 text-sm text-ember">{error}</p>}
+          <div className="flex items-center justify-between gap-4 border-t border-line bg-ink/40 px-6 py-4">
+            <span className="text-xs text-mist">{tooShort ? `Description needs at least ${MIN_DESCRIPTION} characters` : "Generates four concept directions"}</span>
+            <div className="flex gap-2">
+              <Link to="/" className="btn-ghost">Cancel</Link>
+              <button type="submit" disabled={pending || tooShort} className="btn-primary">
+                {pending ? <Spinner /> : <Icon name="sparkles" />}
+                {pending ? "Starting…" : "Generate concepts"}
+              </button>
+            </div>
+          </div>
+        </form>
+      </main>
+    </>
   )
 }

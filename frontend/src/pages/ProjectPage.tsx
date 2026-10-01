@@ -4,9 +4,18 @@ import { useParams } from "react-router-dom"
 import { api } from "../api"
 import { AgentTimeline } from "../components/AgentTimeline"
 import { ConceptGrid } from "../components/ConceptGrid"
-import { ResultPanel } from "../components/ResultPanel"
+import { ProjectBrief } from "../components/ProjectBrief"
+import { EmptyCanvas, ResultPanel } from "../components/ResultPanel"
 import { StatusPill } from "../components/StatusPill"
+import { TopBar } from "../components/TopBar"
 import type { ProjectDetail } from "../types"
+
+function canvasMessage(project: ProjectDetail) {
+  if (project.status === "generating") return "Rendering thumbnail…"
+  if (project.status === "analyzing") return "Writing concepts…"
+  if (project.concepts.length > 0) return "Pick a concept below to render"
+  return "Nothing rendered yet"
+}
 
 export function ProjectPage() {
   const { projectId = "" } = useParams()
@@ -38,49 +47,70 @@ export function ProjectPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["project", projectId] }),
   })
 
-  if (project.isLoading) return <p className="mx-auto max-w-6xl px-5 py-10 text-mist">Opening the project…</p>
-  if (project.isError || !project.data) return <p className="mx-auto max-w-6xl px-5 py-10 text-ember">This project is not available.</p>
+  const crumbs = [{ label: "Projects", to: "/" }, { label: project.data?.title ?? "Project" }]
+  if (project.isLoading) return <TopBar crumbs={crumbs} />
+  if (project.isError || !project.data) {
+    return (
+      <>
+        <TopBar crumbs={crumbs} />
+        <p className="px-6 py-8 text-sm text-ember">This project is not available.</p>
+      </>
+    )
+  }
 
   const data = project.data
   const busy = data.status === "analyzing" || data.status === "generating" || generate.isPending
   const latestFailure = [...data.agent_runs].reverse().find((run) => run.status === "failed")
+  const errorMessage = data.error || latestFailure?.error
+  const latest = data.generations.at(-1)
 
   return (
-    <main className="mx-auto max-w-6xl px-5 py-10">
-      <StatusPill status={data.status} />
-      <h1 className="mt-3 max-w-3xl font-serif text-4xl tracking-tight md:text-5xl">{data.title}</h1>
-      <p className="mt-4 max-w-2xl text-mist">{data.description}</p>
-      {data.youtube_title && <p className="mt-2 text-sm text-gold">YouTube: {data.youtube_title}</p>}
-      {(data.error || latestFailure?.error) && (
-        <div className="mt-6 rounded-2xl border border-ember/40 bg-panel px-4 py-4">
-          <p>{data.error || latestFailure?.error}</p>
-          {data.concepts.length === 0 && (
-            <button type="button" onClick={() => retry.mutate()} className="mt-3 rounded-full border border-line px-4 py-2 text-sm">
-              Try again
-            </button>
+    <>
+      <TopBar crumbs={crumbs}>
+        <StatusPill status={data.status} />
+      </TopBar>
+      <main className="mx-auto grid w-full max-w-7xl gap-6 px-6 py-6 lg:grid-cols-[minmax(0,1fr)_18rem]">
+        <div className="min-w-0 space-y-6">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight">{data.title}</h1>
+            <p className="mt-1.5 max-w-3xl text-sm leading-6 text-mist">{data.description}</p>
+          </div>
+          {errorMessage && (
+            <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-ember/40 bg-ember/5 px-4 py-3">
+              <p className="text-sm">{errorMessage}</p>
+              {data.concepts.length === 0 && (
+                <button type="button" onClick={() => retry.mutate()} disabled={retry.isPending} className="btn-outline">
+                  Try again
+                </button>
+              )}
+            </div>
+          )}
+          {latest?.image_url ? (
+            <ResultPanel
+              projectId={projectId}
+              generation={latest}
+              imageUrl={latest.image_url}
+              passes={data.generations.length}
+              concept={data.concepts.find((item) => item.id === latest.concept_id)}
+            />
+          ) : (
+            <EmptyCanvas message={canvasMessage(data)} busy={data.status === "analyzing" || data.status === "generating"} />
+          )}
+          {data.concepts.length > 0 && (
+            <ConceptGrid
+              concepts={data.concepts}
+              busy={busy}
+              pendingId={generate.isPending ? generate.variables ?? null : null}
+              selectedId={latest ? data.selected_concept_id : null}
+              onGenerate={(conceptId) => generate.mutate(conceptId)}
+            />
           )}
         </div>
-      )}
-      <AgentTimeline runs={data.agent_runs} status={data.status} />
-      {data.references.length > 0 && (
-        <div className="mt-6 flex gap-3">
-          {data.references.map((reference) => (
-            <img key={reference.id} src={reference.url} alt="" className="h-16 w-28 rounded-lg object-cover" />
-          ))}
-        </div>
-      )}
-      <ResultPanel projectId={projectId} generations={data.generations} concepts={data.concepts} />
-      {data.concepts.length > 0 && (
-        <ConceptGrid
-          concepts={data.concepts}
-          busy={busy}
-          pendingId={generate.isPending ? generate.variables ?? null : null}
-          onGenerate={(conceptId) => generate.mutate(conceptId)}
-        />
-      )}
-      {data.status === "analyzing" && data.concepts.length === 0 && (
-        <p className="mt-8 text-mist">Working through the brief, the references, and the hooks.</p>
-      )}
-    </main>
+        <aside className="space-y-4 lg:sticky lg:top-20 lg:self-start">
+          <AgentTimeline runs={data.agent_runs} status={data.status} />
+          <ProjectBrief project={data} />
+        </aside>
+      </main>
+    </>
   )
 }
