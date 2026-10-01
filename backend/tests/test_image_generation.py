@@ -43,7 +43,7 @@ def _encoded_png() -> str:
     return base64.b64encode(buffer.getvalue()).decode()
 
 
-def _patch_openai(monkeypatch, handler) -> list[httpx.Request]:
+def _patch_http(monkeypatch, handler) -> list[httpx.Request]:
     sent: list[httpx.Request] = []
 
     def record(request: httpx.Request) -> httpx.Response:
@@ -67,11 +67,31 @@ class _FakeBedrock:
 
 def test_openai_image_uses_quality_for_the_environment(settings, monkeypatch):
     settings()
-    sent = _patch_openai(monkeypatch, lambda request: httpx.Response(200, json={"data": [{"b64_json": _encoded_png()}]}))
+    sent = _patch_http(monkeypatch, lambda request: httpx.Response(200, json={"data": [{"b64_json": _encoded_png()}]}))
     image, provider = render_background(_spec())
     assert provider == "openai"
     assert image.size == (1280, 720)
     assert json.loads(sent[0].content)["quality"] == "low"
+
+
+def test_ollama_image_is_generated_by_the_local_server(settings, monkeypatch):
+    settings(IMAGE_PROVIDER="ollama", OLLAMA_BASE_URL="http://ollama.test:11434/")
+    sent = _patch_http(monkeypatch, lambda request: httpx.Response(200, json={"data": [{"b64_json": _encoded_png()}]}))
+    image, provider = render_background(_spec())
+    body = json.loads(sent[0].content)
+    assert provider == "ollama"
+    assert image.size == (1280, 720)
+    assert str(sent[0].url) == "http://ollama.test:11434/v1/images/generations"
+    assert body["model"] == "x/flux2-klein:4b"
+    assert "authorization" not in sent[0].headers
+
+
+@pytest.mark.parametrize("response", [httpx.Response(404), httpx.Response(200, json={"data": []})])
+def test_ollama_failures_raise_provider_errors(settings, monkeypatch, response):
+    settings(IMAGE_PROVIDER="ollama")
+    _patch_http(monkeypatch, lambda request: response)
+    with pytest.raises(ProviderError):
+        image_providers.generate_ollama_image("a prompt")
 
 
 def test_bedrock_image_requests_a_16_by_9_stability_image(settings, monkeypatch):
@@ -95,7 +115,7 @@ def test_filtered_bedrock_image_raises_in_production(settings, monkeypatch):
 
 def test_development_falls_back_to_compositor_when_generation_fails(settings, monkeypatch):
     settings()
-    _patch_openai(monkeypatch, lambda request: httpx.Response(500))
+    _patch_http(monkeypatch, lambda request: httpx.Response(500))
     _, provider = render_background(_spec())
     assert provider == "studio-compositor"
 

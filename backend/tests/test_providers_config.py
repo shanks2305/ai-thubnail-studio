@@ -74,6 +74,7 @@ def test_bedrock_judge_defaults_to_the_chat_model(env):
         {"CHAT_PROVIDER": "ollama"},
         {"JUDGE_PROVIDER": "studio"},
         {"IMAGE_PROVIDER": "compositor"},
+        {"IMAGE_PROVIDER": "ollama"},
         {"OPENAI_API_KEY": ""},
         {"CHAT_PROVIDER": "bedrock"},
     ],
