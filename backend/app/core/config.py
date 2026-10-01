@@ -11,6 +11,7 @@ AgentRole = Literal["chat", "judge"]
 ModelProvider = Literal["ollama", "openai", "bedrock", "studio"]
 ImageProvider = Literal["ollama", "openai", "bedrock", "compositor"]
 ImageQuality = Literal["low", "medium", "high"]
+StorageBackend = Literal["local", "s3"]
 
 HOSTED_PROVIDERS = {"openai", "bedrock"}
 DEVELOPMENT_MODEL_PROVIDER: ModelProvider = "ollama"
@@ -30,6 +31,10 @@ class Settings(BaseSettings):
     image_provider: ImageProvider | None = None
     database_url: str = "sqlite:///./thumbnail_suite.db"
     storage_dir: str = "./storage"
+    storage_backend: StorageBackend = "local"
+    s3_bucket: str = ""
+    s3_endpoint_url: str = ""
+    auth_token: str = ""
     openai_api_key: str = ""
     openai_chat_model: str = "gpt-4o-mini"
     openai_judge_model: str = "gpt-4o-mini"

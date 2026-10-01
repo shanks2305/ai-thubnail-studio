@@ -33,9 +33,12 @@ def get_engine() -> Engine:
             cursor.execute("PRAGMA foreign_keys=ON")
             cursor.close()
 
-    from app.db import models  # noqa: F401
+    from app.db import library, models  # noqa: F401
 
     Base.metadata.create_all(_engine)
+    from app.db.schema import sync_schema
+
+    sync_schema(_engine)
     _session_factory = sessionmaker(bind=_engine, expire_on_commit=False)
     return _engine
 

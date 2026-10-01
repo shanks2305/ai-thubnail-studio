@@ -56,11 +56,11 @@ def test_concept_thumbnail_and_export(client):
 
 
 def test_generation_requires_credentials_for_the_configured_provider(client, monkeypatch):
-    monkeypatch.setenv("CHAT_PROVIDER", "openai")
-    monkeypatch.setenv("OPENAI_API_KEY", "")
     from app.core.config import get_settings
+    from app.providers import router as provider_router
 
-    get_settings.cache_clear()
+    forced = get_settings().model_copy(update={"chat_provider": "openai", "openai_api_key": ""})
+    monkeypatch.setattr(provider_router, "get_settings", lambda: forced)
     created = client.post("/api/projects", json={"description": "A quiet documentary about city trains."})
     response = client.post(f"/api/projects/{created.json()['id']}/generate")
     assert response.status_code == 400

@@ -45,6 +45,9 @@ export function Sidebar() {
         <NavItem to="/?filter=saved" active={onDashboard && filter === "saved"}>
           <Icon name="star" /> Saved
         </NavItem>
+        <NavItem to="/library" active={pathname.startsWith("/library")}>
+          <Icon name="layers" /> Library
+        </NavItem>
       </nav>
       {recent.length > 0 && (
         <div className="mt-6 min-h-0 flex-1 overflow-y-auto px-3">

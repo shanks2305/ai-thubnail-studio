@@ -1,8 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useEffect } from "react"
 import { useParams } from "react-router-dom"
-import { api } from "../api"
+import { api, projectEventsUrl } from "../api"
+import { renderedConceptIds } from "../editorState"
 import { AgentTimeline } from "../components/AgentTimeline"
+import { CompareStrip } from "../components/CompareStrip"
+import { StudioTools } from "../components/StudioTools"
 import { ConceptGrid } from "../components/ConceptGrid"
 import { ProjectBrief } from "../components/ProjectBrief"
 import { EmptyCanvas, ResultPanel } from "../components/ResultPanel"
@@ -30,7 +33,7 @@ export function ProjectPage() {
   })
 
   useEffect(() => {
-    const source = new EventSource(`/api/projects/${projectId}/events`)
+    const source = new EventSource(projectEventsUrl(projectId))
     source.onmessage = () => {
       void queryClient.invalidateQueries({ queryKey: ["project", projectId] })
     }
@@ -38,12 +41,23 @@ export function ProjectPage() {
   }, [projectId, queryClient])
 
   const generate = useMutation({
-    mutationFn: (conceptId: string) =>
-      api(`/api/projects/${projectId}/concepts/${conceptId}/generate`, { method: "POST" }),
+    mutationFn: ({ conceptId, prompt }: { conceptId: string; prompt: string }) =>
+      api(`/api/projects/${projectId}/concepts/${conceptId}/generate`, {
+        method: "POST",
+        body: JSON.stringify({ image_prompt: prompt }),
+      }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["project", projectId] }),
   })
   const retry = useMutation({
     mutationFn: () => api(`/api/projects/${projectId}/generate`, { method: "POST" }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["project", projectId] }),
+  })
+  const directions = useMutation({
+    mutationFn: () => api(`/api/projects/${projectId}/directions`, { method: "POST" }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["project", projectId] }),
+  })
+  const renderAll = useMutation({
+    mutationFn: () => api(`/api/projects/${projectId}/render-all`, { method: "POST" }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["project", projectId] }),
   })
 
@@ -68,6 +82,14 @@ export function ProjectPage() {
     <>
       <TopBar crumbs={crumbs}>
         <StatusPill status={data.status} />
+        {data.concepts.some((concept) => !concept.archived) && (
+          <button type="button" className="btn-outline" disabled={busy} onClick={() => renderAll.mutate()}>
+            Render all
+          </button>
+        )}
+        <button type="button" className="btn-ghost" disabled={busy} onClick={() => directions.mutate()}>
+          New directions
+        </button>
       </TopBar>
       <main className="mx-auto grid w-full max-w-7xl gap-6 px-6 py-6 lg:grid-cols-[minmax(0,1fr)_18rem]">
         <div className="min-w-0 space-y-6">
@@ -96,13 +118,17 @@ export function ProjectPage() {
           ) : (
             <EmptyCanvas message={canvasMessage(data)} busy={data.status === "analyzing" || data.status === "generating"} />
           )}
+          {data.generations.length > 1 && (
+            <CompareStrip projectId={projectId} generations={data.generations} concepts={data.concepts} />
+          )}
+          <StudioTools project={data} />
           {data.concepts.length > 0 && (
             <ConceptGrid
               concepts={data.concepts}
               busy={busy}
-              pendingId={generate.isPending ? generate.variables ?? null : null}
-              selectedId={latest ? data.selected_concept_id : null}
-              onGenerate={(conceptId) => generate.mutate(conceptId)}
+              pendingId={generate.isPending ? generate.variables?.conceptId ?? null : null}
+              renderedIds={renderedConceptIds(data.generations)}
+              onGenerate={(conceptId, prompt) => generate.mutate({ conceptId, prompt })}
             />
           )}
         </div>

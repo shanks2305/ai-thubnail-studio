@@ -49,4 +49,8 @@ def thumbnail_prompt(spec: DesignSpec) -> str:
         TEXT_SPACE[spec.text.position],
         "No text, letters, captions, logos, or watermarks.",
     ]
+    if spec.subject.get("portrait"):
+        parts.append("Leave the subject side open. Do not invent a face.")
+    if spec.palette:
+        parts.append(f"Color grade toward {', '.join(str(color) for color in spec.palette[:3])}.")
     return " ".join(part for part in parts if part)[:PROMPT_LIMIT]

@@ -60,6 +60,7 @@ def system_status() -> dict[str, object]:
         "chat_provider": chat,
         "judge_provider": judge,
         "image_provider": image,
+        "auth_required": bool(settings.auth_token),
         "openai_configured": bool(settings.openai_api_key),
         "ollama_reachable": ollama_reachable() if "ollama" in {chat, judge, image} else False,
         "message": (

@@ -7,18 +7,20 @@ from uuid import uuid4
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
-from app.agents.concept_pipeline import run_concept_pipeline
-from app.agents.thumbnail_pipeline import load_background, run_thumbnail_pipeline
+from app.agents.thumbnail_pipeline import load_background
 from app.api.projects import require_project
-from app.api.schemas import TextUpdate
+from app.api.schemas import ConceptPrompt, GenerateThumbnailBody, TextUpdate
 from app.api.serialize import present_generation
 from app.core.database import session_scope
 from app.db.models import Asset, Concept, CritiqueRow, Generation, utcnow
 from app.domain.state import DesignSpec
 from app.providers.router import readiness_error
 from app.services.events import bus
+from app.services.jobs import enqueue
 from app.tools.compositor import compose, image_bytes
 from app.tools.critic import critique_image
+from app.tools.edits import apply_editor
+from app.tools.portraits import load_portrait
 from app.tools.storage import save_bytes
 
 router = APIRouter()
@@ -31,32 +33,76 @@ def generate_concepts(project_id: str, background: BackgroundTasks) -> dict[str,
         project = require_project(session, project_id)
         _ensure_idle(project.status)
         if project.generations:
-            raise HTTPException(status_code=409, detail="This project already has thumbnails.")
+            raise HTTPException(status_code=409, detail="Use new directions to keep the thumbnails you already have.")
         _ensure_ready()
-        for concept in list(project.concepts):
-            session.delete(concept)
         project.status = "analyzing"
         project.error = None
         project.updated_at = utcnow()
-    background.add_task(run_concept_pipeline, project_id)
+    enqueue(background, "concepts", project_id, {"archive": False})
     return {"status": "analyzing"}
 
 
+@router.post("/projects/{project_id}/directions", status_code=202)
+def new_directions(project_id: str, background: BackgroundTasks) -> dict[str, str]:
+    with session_scope() as session:
+        project = require_project(session, project_id)
+        _ensure_idle(project.status)
+        _ensure_ready()
+        project.status = "analyzing"
+        project.error = None
+        project.updated_at = utcnow()
+    enqueue(background, "concepts", project_id, {"archive": True})
+    return {"status": "analyzing"}
+
+
+@router.post("/projects/{project_id}/render-all", status_code=202)
+def render_all(project_id: str, background: BackgroundTasks) -> dict[str, str]:
+    with session_scope() as session:
+        project = require_project(session, project_id)
+        _ensure_idle(project.status)
+        if not any(not concept.archived for concept in project.concepts):
+            raise HTTPException(status_code=400, detail="Generate concepts before rendering.")
+        _ensure_ready()
+        project.status = "generating"
+        project.error = None
+        project.updated_at = utcnow()
+    enqueue(background, "batch", project_id)
+    return {"status": "generating"}
+
+
 @router.post("/projects/{project_id}/concepts/{concept_id}/generate", status_code=202)
-def generate_thumbnail(project_id: str, concept_id: str, background: BackgroundTasks) -> dict[str, str]:
+def generate_thumbnail(
+    project_id: str,
+    concept_id: str,
+    background: BackgroundTasks,
+    body: GenerateThumbnailBody | None = None,
+) -> dict[str, str]:
     with session_scope() as session:
         project = require_project(session, project_id)
         concept = session.get(Concept, concept_id)
-        if concept is None or concept.project_id != project.id:
+        if concept is None or concept.project_id != project.id or concept.archived:
             raise HTTPException(status_code=404, detail="Concept not found.")
         _ensure_idle(project.status)
         _ensure_ready()
+        if body is not None and body.image_prompt is not None:
+            concept.image_prompt = body.image_prompt.strip()[:3900] or None
         project.status = "generating"
         project.selected_concept_id = concept.id
         project.error = None
         project.updated_at = utcnow()
-    background.add_task(run_thumbnail_pipeline, project_id, concept_id)
+    enqueue(background, "thumbnail", project_id, {"concept_id": concept_id})
     return {"status": "generating"}
+
+
+@router.patch("/concepts/{concept_id}")
+def update_concept(concept_id: str, body: ConceptPrompt) -> dict[str, str | None]:
+    with session_scope() as session:
+        concept = session.get(Concept, concept_id)
+        if concept is None or concept.archived:
+            raise HTTPException(status_code=404, detail="Concept not found.")
+        require_project(session, concept.project_id)
+        concept.image_prompt = body.image_prompt.strip()[:3900] or None
+        return {"id": concept.id, "image_prompt": concept.image_prompt}
 
 
 @router.patch("/generations/{generation_id}")
@@ -65,12 +111,9 @@ def edit_generation(generation_id: str, body: TextUpdate) -> dict:
         generation = session.get(Generation, generation_id)
         if generation is None:
             raise HTTPException(status_code=404, detail="Thumbnail not found.")
-        spec = DesignSpec.model_validate(generation.design_spec)
-        spec.text.content = body.content
-        spec.text.position = body.position
-        spec.text.size = body.size
-        spec.text.color = body.color
-        image = compose(load_background(session, generation, spec), spec)
+        spec = apply_editor(DesignSpec.model_validate(generation.design_spec), body)
+        project = require_project(session, generation.project_id)
+        image = compose(load_background(session, generation, spec), spec, load_portrait(session, project))
         critique = critique_image(image, spec)
         _replace_composite(session, generation, image, spec)
         if generation.critique is None:
@@ -89,7 +132,6 @@ def edit_generation(generation_id: str, body: TextUpdate) -> dict:
             generation.critique.passed = critique.passed
             generation.critique.issues = [issue.model_dump() for issue in critique.issues]
             generation.critique.recommended_changes = critique.recommended_changes
-        project = require_project(session, generation.project_id)
         project.updated_at = utcnow()
         session.flush()
         return present_generation(generation)

@@ -1,11 +1,24 @@
 import type { ProjectDetail } from "../types"
 
 export function ProjectBrief({ project }: { project: ProjectDetail }) {
-  if (!project.youtube_url && project.references.length === 0) return null
+  if (!project.youtube_url && project.references.length === 0 && !project.audience_brief && !project.face) return null
 
   return (
     <section className="card space-y-4 p-4">
       <h2 className="text-sm font-medium">Inputs</h2>
+      {project.audience_brief && (
+        <div>
+          <p className="label">Audience</p>
+          <p className="mt-1 text-sm text-paper">{project.audience_brief.viewer}</p>
+          <p className="mt-1 text-xs leading-5 text-mist">{project.audience_brief.click_reason}</p>
+        </div>
+      )}
+      {project.face && (
+        <div>
+          <p className="label">Creator</p>
+          <img src={project.face.url} alt="Creator" className="mt-2 h-16 w-16 rounded-full object-cover ring-1 ring-line" />
+        </div>
+      )}
       {project.youtube_url && (
         <div>
           <p className="label">Source video</p>

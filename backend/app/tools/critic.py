@@ -26,6 +26,18 @@ def critique_image(image: Image.Image, spec: DesignSpec) -> Critique:
         )
         changes.append("Darken the area behind the headline")
         score -= 28
+    left = mean_luminance(image.crop((0, 0, CANVAS[0] // 2, CANVAS[1])))
+    right = mean_luminance(image.crop((CANVAS[0] // 2, 0, CANVAS[0], CANVAS[1])))
+    if abs(left - right) < 0.03:
+        issues.append(
+            Issue(
+                type="flat_separation",
+                severity="medium",
+                message="The subject does not separate from the background.",
+            )
+        )
+        changes.append("Increase subject contrast and keep the headline side darker")
+        score -= 12
     if len(words) > 6:
         issues.append(
             Issue(
@@ -50,6 +62,7 @@ def revise_spec(spec: DesignSpec, critique: Critique) -> DesignSpec:
     kinds = {issue.type for issue in critique.issues}
     if "text_readability" in kinds:
         updated.scrim = True
+        updated.scrim_strength = max(updated.scrim_strength, 0.78)
         updated.text.color = "#ffffff"
     if "text_density" in kinds:
         updated.text.content = " ".join(updated.text.content.split()[:4])

@@ -4,8 +4,12 @@ services:
     ports:
       - "8000:8000"
     environment:
-      DATABASE_URL: sqlite:////data/thumbnail_suite.db
+      DATABASE_URL: ${DATABASE_URL:-sqlite:////data/thumbnail_suite.db}
       STORAGE_DIR: /data/storage
+      STORAGE_BACKEND: ${STORAGE_BACKEND:-local}
+      S3_BUCKET: ${S3_BUCKET:-}
+      S3_ENDPOINT_URL: ${S3_ENDPOINT_URL:-}
+      AUTH_TOKEN: ${AUTH_TOKEN:-}
       APP_ENV: ${APP_ENV:-development}
       CHAT_PROVIDER: ${CHAT_PROVIDER:-}
       JUDGE_PROVIDER: ${JUDGE_PROVIDER:-}
@@ -18,6 +22,8 @@ services:
       OLLAMA_JUDGE_MODEL: ${OLLAMA_JUDGE_MODEL:-}
       OLLAMA_IMAGE_MODEL: ${OLLAMA_IMAGE_MODEL:-}
       AWS_REGION: ${AWS_REGION:-us-west-2}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
       BEDROCK_CHAT_MODEL: ${BEDROCK_CHAT_MODEL:-}
       BEDROCK_JUDGE_MODEL: ${BEDROCK_JUDGE_MODEL:-}
       BEDROCK_IMAGE_MODEL: ${BEDROCK_IMAGE_MODEL:-}
@@ -30,6 +36,27 @@ services:
       - "5173:80"
     depends_on:
       - backend
+
+  postgres:
+    profiles: ["hosted"]
+    image: postgres:16
+    environment:
+      POSTGRES_USER: thumbnail
+      POSTGRES_PASSWORD: thumbnail
+      POSTGRES_DB: thumbnail
+    ports:
+      - "5432:5432"
+
+  minio:
+    profiles: ["hosted"]
+    image: minio/minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${AWS_ACCESS_KEY_ID:-thumbnail}
+      MINIO_ROOT_PASSWORD: ${AWS_SECRET_ACCESS_KEY:-thumbnail-secret}
+    ports:
+      - "9000:9000"
+      - "9001:9001"
 
 volumes:
   suite-data:

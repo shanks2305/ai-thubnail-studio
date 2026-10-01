@@ -20,6 +20,25 @@ npm run dev
 
 Open http://localhost:5173.
 
+For a fully local model run, pull the Ollama models and leave the provider settings blank:
+
+```bash
+ollama pull llama3.2
+ollama pull qwen2.5vl
+ollama pull x/flux2-klein:4b
+```
+
+`docker compose up` uses those local defaults and stores data in a volume. For Postgres and S3-compatible storage, start the hosted profile and point the backend at it:
+
+```bash
+DATABASE_URL=postgresql+psycopg://thumbnail:thumbnail@postgres:5432/thumbnail \
+STORAGE_BACKEND=s3 S3_BUCKET=thumbnails S3_ENDPOINT_URL=http://minio:9000 \
+AWS_ACCESS_KEY_ID=thumbnail AWS_SECRET_ACCESS_KEY=thumbnail-secret \
+docker compose --profile hosted up
+```
+
+Create the `thumbnails` bucket in MinIO before the first render. Set `AUTH_TOKEN` when the API is reachable by anyone other than you. Send it as `Authorization: Bearer <token>`. Teammates are added with `POST /api/team/members`.
+
 Copy `.env.example` to `backend/.env`. The studio runs three kinds of agent, each with its own provider:
 
 | Role | Agents | Setting |

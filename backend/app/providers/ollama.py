@@ -51,7 +51,14 @@ class OllamaProvider:
                 timeout=120,
             )
             response.raise_for_status()
-            content = response.json()["message"]["content"]
-        except httpx.HTTPError as exc:
+            body = response.json()
+            content = body["message"]["content"]
+        except (httpx.HTTPError, KeyError) as exc:
             raise ProviderError("Ollama could not complete this step.") from exc
-        return LLMResponse(content=content, provider=self.name, model=request.model)
+        return LLMResponse(
+            content=content,
+            provider=self.name,
+            model=request.model,
+            input_tokens=int(body.get("prompt_eval_count") or 0),
+            output_tokens=int(body.get("eval_count") or 0),
+        )

@@ -5,6 +5,7 @@ import type { AgentRun, ProjectStatus } from "../types"
 const STEPS = [
   ["video_analyst", "Understanding the video"],
   ["reference_analyst", "Studying references"],
+  ["audience_analyst", "Reading the audience"],
   ["hook_strategist", "Writing hooks"],
   ["creative_director", "Directing concepts"],
   ["visual_director", "Framing the shot"],
@@ -35,7 +36,10 @@ export function AgentTimeline({ runs, status }: { runs: AgentRun[]; status: Proj
     status === "generating" ||
     status === "ready" ||
     runs.some((run) => run.agent === "visual_director" || run.agent === "image_generator" || run.agent === "critic")
-  const steps = STEPS.filter(([id], index) => index < 4 || showRender || latest.has(id))
+  const steps = STEPS.filter(([id], index) => {
+    if (id === "audience_analyst") return latest.has(id) || status === "analyzing"
+    return index < 5 || showRender || latest.has(id)
+  })
   const done = steps.filter(([id]) => latest.get(id)?.status === "completed").length
 
   return (
@@ -61,6 +65,7 @@ export function AgentTimeline({ runs, status }: { runs: AgentRun[]; status: Proj
                 <p className={`text-sm ${state === "pending" ? "text-mist" : "text-paper"}`}>{label}</p>
                 <p className="mt-0.5 text-xs text-mist/70">
                   {STATE_LABEL[state] ?? state}
+                  {run?.duration_ms != null && ` · ${(run.duration_ms / 1000).toFixed(1)}s`}
                   {run?.provider && <span className="font-mono"> · {run.provider}</span>}
                 </p>
               </div>

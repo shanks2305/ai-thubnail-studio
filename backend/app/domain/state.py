@@ -65,6 +65,9 @@ class TextSpec(_Model):
     position: Literal["left", "center", "right"] = "left"
     size: Literal["medium", "large", "very large"] = "very large"
     color: str = "#ffffff"
+    font: Literal["anton", "bebas"] = "anton"
+    stroke: bool = False
+    vertical: Literal["top", "middle", "bottom"] = "middle"
 
 
 class DesignSpec(_Model):
@@ -77,6 +80,17 @@ class DesignSpec(_Model):
     image_prompt: str = ""
     palette: list[str] = Field(default_factory=list)
     scrim: bool = False
+    scrim_strength: float = 0
+    recolor: bool = False
+
+    @field_validator("scrim_strength", mode="before")
+    @classmethod
+    def _strength(cls, value: object) -> float:
+        try:
+            number = float(value)  # type: ignore[arg-type]
+        except (TypeError, ValueError):
+            return 0
+        return min(1.0, max(0.0, number))
 
     @field_validator("palette", mode="before")
     @classmethod
@@ -84,6 +98,13 @@ class DesignSpec(_Model):
         if not isinstance(value, list):
             return []
         return [str(item) for item in value][:6]
+
+
+class AudienceBrief(_Model):
+    viewer: str
+    belief: str
+    click_reason: str
+    avoid: list[str] = Field(default_factory=list)
 
 
 class Issue(_Model):

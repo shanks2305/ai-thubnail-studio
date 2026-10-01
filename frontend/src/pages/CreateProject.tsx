@@ -4,6 +4,7 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom"
 import { ApiError, api } from "../api"
 import { FormSection } from "../components/FormSection"
 import { Icon } from "../components/Icon"
+import { LibraryPickers } from "../components/LibraryPickers"
 import { ReferencePicker } from "../components/ReferencePicker"
 import { Spinner } from "../components/Spinner"
 import { TopBar } from "../components/TopBar"
@@ -18,6 +19,10 @@ export function CreateProject() {
   const [description, setDescription] = useState(params.get("prompt") ?? "")
   const [youtube, setYoutube] = useState("")
   const [files, setFiles] = useState<File[]>([])
+  const [brandKitId, setBrandKitId] = useState("")
+  const [profileId, setProfileId] = useState("")
+  const [channelId, setChannelId] = useState("")
+  const [face, setFace] = useState<File | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
   const tooShort = description.trim().length < MIN_DESCRIPTION
@@ -32,8 +37,16 @@ export function CreateProject() {
         body: JSON.stringify({
           description,
           youtube_url: youtube.trim() || null,
+          brand_kit_id: brandKitId || null,
+          creator_profile_id: profileId || null,
+          channel_id: channelId || null,
         }),
       })
+      if (face) {
+        const form = new FormData()
+        form.append("file", face)
+        await api(`/api/projects/${project.id}/face`, { method: "POST", body: form })
+      }
       if (files.length > 0) {
         const form = new FormData()
         files.forEach((file) => form.append("files", file))
@@ -73,6 +86,18 @@ export function CreateProject() {
           </FormSection>
           <FormSection step={3} title="References" hint="Thumbnails whose style you want to borrow." optional>
             <ReferencePicker files={files} onChange={setFiles} />
+          </FormSection>
+          <FormSection step={4} title="Brand and face" hint="A saved kit, a style, a channel, or your photo." optional>
+            <LibraryPickers
+              brandKitId={brandKitId}
+              profileId={profileId}
+              channelId={channelId}
+              onBrand={setBrandKitId}
+              onProfile={setProfileId}
+              onChannel={setChannelId}
+              face={face}
+              onFace={setFace}
+            />
           </FormSection>
           {error && <p role="alert" className="mx-6 mb-4 rounded-lg border border-ember/40 bg-ember/5 px-4 py-3 text-sm text-ember">{error}</p>}
           <div className="flex items-center justify-between gap-4 border-t border-line bg-ink/40 px-6 py-4">

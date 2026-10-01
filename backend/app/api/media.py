@@ -1,3 +1,4 @@
+from pathlib import Path
 from io import BytesIO
 from uuid import uuid4
 
@@ -49,12 +50,32 @@ def upload_references(project_id: str, files: list[UploadFile] = File(...)) -> d
     return {"references": references}
 
 
+@router.post("/projects/{project_id}/face", status_code=201)
+def upload_face(project_id: str, file: UploadFile = File(...)) -> dict:
+    data, suffix, content_type = read_upload(file)
+    with session_scope() as session:
+        project = require_project(session, project_id)
+        for asset in list(project.assets):
+            if asset.kind != "face":
+                continue
+            if not asset.path.startswith("s3://"):
+                Path(asset.path).unlink(missing_ok=True)
+            session.delete(asset)
+        path = save_bytes(project.id, "face", data, suffix)
+        asset = Asset(id=str(uuid4()), project_id=project.id, kind="face", content_type=content_type, path=path)
+        session.add(asset)
+        project.updated_at = utcnow()
+        session.flush()
+        return {"id": asset.id, "url": f"/api/assets/{asset.id}"}
+
+
 @router.get("/assets/{asset_id}")
 def get_asset(asset_id: str) -> Response:
     with session_scope() as session:
         asset = session.get(Asset, asset_id)
         if asset is None:
             raise HTTPException(status_code=404, detail="Asset not found.")
+        require_project(session, asset.project_id)
         try:
             data = read_bytes(asset.path)
         except (OSError, ValueError) as exc:
@@ -73,6 +94,7 @@ def export_generation(generation_id: str, format: str = "png") -> Response:
         generation = session.get(Generation, generation_id)
         if generation is None or not generation.image_asset_id:
             raise HTTPException(status_code=404, detail="Thumbnail not found.")
+        require_project(session, generation.project_id)
         asset = session.get(Asset, generation.image_asset_id)
         if asset is None:
             raise HTTPException(status_code=404, detail="Thumbnail not found.")
@@ -84,6 +106,10 @@ def export_generation(generation_id: str, format: str = "png") -> Response:
         media_type=media_type,
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+
+def read_upload(upload: UploadFile) -> tuple[bytes, str, str]:
+    return _read_image(upload)
 
 
 def _read_image(upload: UploadFile) -> tuple[bytes, str, str]:

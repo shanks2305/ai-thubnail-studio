@@ -1,10 +1,11 @@
 import logging
 from uuid import uuid4
 
+from app.agents.context import style_context
 from app.agents.runner import mark_failed, public_error, run_structured
 from app.core.database import session_scope
 from app.db.models import Asset, Concept, Project, utcnow
-from app.domain.state import ConceptList, HookList, ReferenceProfile, VideoBrief
+from app.domain.state import AudienceBrief, ConceptList, HookList, ReferenceProfile, VideoBrief
 from app.providers.base import ProviderError
 from app.services.events import publish
 from app.tools.image_analysis import analyze_image
@@ -14,7 +15,7 @@ from app.tools.youtube import download_bytes, fetch_youtube
 logger = logging.getLogger(__name__)
 
 
-def run_concept_pipeline(project_id: str) -> None:
+def run_concept_pipeline(project_id: str, archive: bool = False) -> None:
     try:
         with session_scope() as session:
             project = session.get(Project, project_id)
@@ -30,12 +31,23 @@ def run_concept_pipeline(project_id: str) -> None:
             project.updated_at = utcnow()
             session.commit()
 
+            audience = run_structured(
+                session,
+                project,
+                "audience_analyst",
+                {**base, "video_brief": brief.model_dump()},
+                AudienceBrief,
+            )
+            project.audience_brief = audience.model_dump()
+            session.commit()
+            context = {**base, "video_brief": brief.model_dump(), **style_context(session, project)}
+
             references = _reference_payload(project)
             profile = run_structured(
                 session,
                 project,
                 "reference_analyst",
-                {**base, "video_brief": brief.model_dump(), "references": references},
+                {**context, "references": references},
                 ReferenceProfile,
             )
             project.reference_profile = profile.model_dump()
@@ -45,7 +57,7 @@ def run_concept_pipeline(project_id: str) -> None:
                 session,
                 project,
                 "hook_strategist",
-                {**base, "video_brief": brief.model_dump(), "reference_profile": profile.model_dump()},
+                {**context, "reference_profile": profile.model_dump()},
                 HookList,
             )
             for hook in hooks.hooks:
@@ -58,14 +70,13 @@ def run_concept_pipeline(project_id: str) -> None:
                 project,
                 "creative_director",
                 {
-                    **base,
-                    "video_brief": brief.model_dump(),
+                    **context,
                     "reference_profile": profile.model_dump(),
                     "hooks": project.hooks,
                 },
                 ConceptList,
             )
-            _replace_concepts(session, project, concepts)
+            _replace_concepts(session, project, concepts, archive)
             project.status = "concepts_ready"
             project.error = None
             project.updated_at = utcnow()
@@ -119,11 +130,15 @@ def _reference_payload(project: Project) -> list[dict[str, object]]:
     return analyses
 
 
-def _replace_concepts(session, project: Project, concepts: ConceptList) -> None:
+def _replace_concepts(session, project: Project, concepts: ConceptList, archive: bool) -> None:
     if not concepts.concepts:
         raise ProviderError("The creative director did not return any concepts.")
-    for concept in list(project.concepts):
-        session.delete(concept)
+    if archive:
+        for concept in project.concepts:
+            concept.archived = True
+    else:
+        for concept in list(project.concepts):
+            session.delete(concept)
     session.flush()
     for index, concept in enumerate(concepts.concepts[:4]):
         session.add(

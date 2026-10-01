@@ -40,7 +40,16 @@ def run_structured(
         _finish(session, run, "failed", error=public_error(exc))
         publish(project.id, {"type": "agent_failed", "agent": task, "message": run.error})
         raise
-    _finish(session, run, "completed", provider=response.provider, model_name=response.model, output=parsed.model_dump())
+    _finish(
+        session,
+        run,
+        "completed",
+        provider=response.provider,
+        model_name=response.model,
+        output=parsed.model_dump(),
+        input_tokens=response.input_tokens,
+        output_tokens=response.output_tokens,
+    )
     publish(project.id, {"type": "agent_completed", "agent": task, "provider": response.provider})
     return parsed
 
@@ -93,11 +102,15 @@ def _finish(
     model_name: str | None = None,
     output: dict | None = None,
     error: str | None = None,
+    input_tokens: int = 0,
+    output_tokens: int = 0,
 ) -> None:
     run.status = status
     run.provider = provider
     run.model = model_name
     run.output = output
     run.error = error
+    run.input_tokens = input_tokens or None
+    run.output_tokens = output_tokens or None
     run.finished_at = utcnow()
     session.commit()

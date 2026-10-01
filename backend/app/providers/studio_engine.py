@@ -6,6 +6,7 @@ def run_task(task: str, payload: dict[str, Any]) -> dict[str, Any]:
     handlers = {
         "video_analyst": _video_brief,
         "reference_analyst": _reference_profile,
+        "audience_analyst": _audience,
         "hook_strategist": _hooks,
         "creative_director": _concepts,
         "visual_director": _design_spec,
@@ -37,8 +38,22 @@ def _video_brief(payload: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _audience(payload: dict[str, Any]) -> dict[str, Any]:
+    brief = payload.get("video_brief") if isinstance(payload.get("video_brief"), dict) else {}
+    viewer = str(brief.get("audience") or "A viewer scrolling on a phone")
+    return {
+        "viewer": viewer[:240],
+        "belief": "They have seen a similar claim and want a specific result.",
+        "click_reason": "The frame promises one outcome they can judge in a second.",
+        "avoid": ["Vague promises", "More than five words", "Tiny unreadable type"],
+    }
+
+
 def _reference_profile(payload: dict[str, Any]) -> dict[str, Any]:
     references = payload.get("references") if isinstance(payload.get("references"), list) else []
+    saved = payload.get("creator_style") or payload.get("channel_style")
+    if not references and isinstance(saved, dict) and saved.get("style_summary"):
+        return _saved_profile(saved)
     if not references:
         return _default_profile()
     colors: list[str] = []
@@ -107,7 +122,11 @@ def _design_spec(payload: dict[str, Any]) -> dict[str, Any]:
     composition = profile.get("composition") if isinstance(profile.get("composition"), dict) else {}
     text_position = composition.get("text_position") if composition.get("text_position") in {"left", "center", "right"} else "left"
     subject_position = "left" if text_position == "right" else "right"
+    brand = payload.get("brand") if isinstance(payload.get("brand"), dict) else {}
     palette = profile.get("color_palette") if isinstance(profile.get("color_palette"), list) else []
+    if isinstance(brand.get("colors"), list) and brand["colors"]:
+        palette = brand["colors"]
+    font = brand.get("font") if brand.get("font") in {"anton", "bebas"} else "anton"
     headline = str(concept.get("text") or concept.get("hook") or "WATCH THIS")
     subject = str(concept.get("subject") or "A single expressive subject")
     background = str(concept.get("background") or "A dark cinematic background")
@@ -117,13 +136,32 @@ def _design_spec(payload: dict[str, Any]) -> dict[str, Any]:
         "background": {"description": background, "depth": "medium"},
         "lighting": "Hard key light and deep shadows so the subject reads at thumbnail size.",
         "composition": str(concept.get("composition") or "Subject opposite the headline."),
-        "text": {"content": headline, "position": text_position, "size": "very large", "color": "#ffffff"},
+        "text": {
+            "content": headline,
+            "position": text_position,
+            "size": "very large",
+            "color": "#ffffff",
+            "font": font,
+            "stroke": True,
+            "vertical": "middle",
+        },
         "image_prompt": (
             "Photorealistic cinematic still, 16:9, no text, no letters, no logos, no watermark. "
             f"{subject} {background}"
         ),
         "palette": [str(color) for color in palette][:4],
         "scrim": False,
+    }
+
+
+def _saved_profile(saved: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "style_summary": str(saved.get("style_summary")),
+        "composition": saved.get("composition") if isinstance(saved.get("composition"), dict) else {},
+        "typography": saved.get("typography") if isinstance(saved.get("typography"), dict) else {},
+        "color_palette": list(saved.get("color_palette") or [])[:6],
+        "visual_language": [str(item) for item in saved.get("visual_language") or []],
+        "do_not_copy": [str(item) for item in saved.get("do_not_copy") or []],
     }
 
 

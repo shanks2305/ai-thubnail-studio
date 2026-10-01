@@ -33,6 +33,13 @@ class BedrockProvider:
                 inferenceConfig={"temperature": 0.7},
             )
             text = response["output"]["message"]["content"][0]["text"]
+            usage = response.get("usage") or {}
         except (BotoCoreError, ClientError, KeyError, IndexError) as exc:
             raise ProviderError("Bedrock could not complete this step.") from exc
-        return LLMResponse(content=text, provider=self.name, model=request.model)
+        return LLMResponse(
+            content=text,
+            provider=self.name,
+            model=request.model,
+            input_tokens=int(usage.get("inputTokens") or 0),
+            output_tokens=int(usage.get("outputTokens") or 0),
+        )

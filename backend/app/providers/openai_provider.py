@@ -30,10 +30,18 @@ class OpenAIProvider:
                 timeout=90,
             )
             response.raise_for_status()
-            content = response.json()["choices"][0]["message"]["content"]
-        except httpx.HTTPError as exc:
+            body = response.json()
+            content = body["choices"][0]["message"]["content"]
+            usage = body.get("usage") or {}
+        except (httpx.HTTPError, KeyError, IndexError) as exc:
             raise ProviderError("OpenAI could not complete this step.") from exc
-        return LLMResponse(content=content, provider=self.name, model=request.model)
+        return LLMResponse(
+            content=content,
+            provider=self.name,
+            model=request.model,
+            input_tokens=int(usage.get("prompt_tokens") or 0),
+            output_tokens=int(usage.get("completion_tokens") or 0),
+        )
 
 
 def _user_content(request: LLMRequest) -> str | list[dict[str, object]]:
