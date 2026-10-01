@@ -1,6 +1,6 @@
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class _Model(BaseModel):
@@ -60,6 +60,12 @@ class ConceptList(_Model):
     concepts: list[ThumbnailConcept]
 
 
+_HORIZONTAL = {"left", "center", "right"}
+_VERTICAL = {"top", "middle", "bottom"}
+_SIZES = {"medium", "large", "very large"}
+_FONTS = {"anton", "bebas"}
+
+
 class TextSpec(_Model):
     content: str
     position: Literal["left", "center", "right"] = "left"
@@ -68,6 +74,28 @@ class TextSpec(_Model):
     font: Literal["anton", "bebas"] = "anton"
     stroke: bool = False
     vertical: Literal["top", "middle", "bottom"] = "middle"
+
+    @model_validator(mode="before")
+    @classmethod
+    def _placement(cls, value: object) -> object:
+        if not isinstance(value, dict):
+            return value
+        data = dict(value)
+        position = _choice(data.get("position"))
+        vertical = _choice(data.get("vertical"))
+        if position in _VERTICAL and vertical not in _VERTICAL:
+            vertical = position
+        data["position"] = position if position in _HORIZONTAL else "left"
+        data["vertical"] = vertical if vertical in _VERTICAL else "middle"
+        size = _choice(data.get("size"))
+        data["size"] = size if size in _SIZES else "very large"
+        font = _choice(data.get("font"))
+        data["font"] = font if font in _FONTS else "anton"
+        return data
+
+
+def _choice(value: object) -> str:
+    return str(value or "").strip().lower()
 
 
 class DesignSpec(_Model):
