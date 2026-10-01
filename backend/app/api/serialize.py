@@ -33,6 +33,7 @@ def present_project(project: Project) -> dict:
         "brand_kit_id": project.brand_kit_id,
         "creator_profile_id": project.creator_profile_id,
         "channel_id": project.channel_id,
+        "creative_style": project.creative_style or "cinematic",
         "audience_brief": project.audience_brief,
         "video_brief": project.video_brief,
         "reference_profile": project.reference_profile,
@@ -42,6 +43,7 @@ def present_project(project: Project) -> dict:
         "agent_runs": [_run(run) for run in project.agent_runs],
         "references": [_reference(asset) for asset in project.assets if asset.kind == "reference"],
         "face": _face(project),
+        "people": [_reference(asset) for asset in project.assets if asset.kind in {"person", "video_person"}],
         "experiments": _experiments(project),
         "created_at": _utc_iso(project.created_at),
     }

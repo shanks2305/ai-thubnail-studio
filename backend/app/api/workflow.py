@@ -20,7 +20,7 @@ from app.services.jobs import enqueue
 from app.tools.compositor import compose, image_bytes
 from app.tools.critic import critique_image
 from app.tools.edits import apply_editor
-from app.tools.portraits import load_portrait
+from app.tools.portraits import load_people
 from app.tools.storage import save_bytes
 
 router = APIRouter()
@@ -113,7 +113,7 @@ def edit_generation(generation_id: str, body: TextUpdate) -> dict:
             raise HTTPException(status_code=404, detail="Thumbnail not found.")
         spec = apply_editor(DesignSpec.model_validate(generation.design_spec), body)
         project = require_project(session, generation.project_id)
-        image = compose(load_background(session, generation, spec), spec, load_portrait(session, project))
+        image = compose(load_background(session, generation, spec), spec, people=load_people(session, project))
         critique = critique_image(image, spec)
         _replace_composite(session, generation, image, spec)
         if generation.critique is None:

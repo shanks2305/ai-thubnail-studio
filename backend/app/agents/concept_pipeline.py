@@ -1,5 +1,8 @@
 import logging
+from io import BytesIO
 from uuid import uuid4
+
+from PIL import Image
 
 from app.agents.context import style_context
 from app.agents.runner import mark_failed, public_error, run_structured
@@ -10,7 +13,8 @@ from app.providers.base import ProviderError
 from app.services.events import publish
 from app.tools.image_analysis import analyze_image
 from app.tools.storage import save_bytes
-from app.tools.youtube import download_bytes, fetch_youtube
+from app.tools.portraits import has_uploaded_people, jpeg_bytes, subject_portrait, video_person_asset
+from app.tools.youtube import download_bytes, fetch_youtube, video_still_bytes
 
 logger = logging.getLogger(__name__)
 
@@ -109,7 +113,22 @@ def _enrich_youtube(session, project: Project) -> None:
                 path=path,
             )
         )
+    _capture_video_person(session, project, metadata)
     session.commit()
+
+
+def _capture_video_person(session, project: Project, metadata) -> None:
+    if has_uploaded_people(project) or any(asset.kind == "video_person" for asset in project.assets):
+        return
+    data = video_still_bytes(metadata.video_id, metadata.thumbnail_url)
+    if data is None:
+        return
+    try:
+        portrait = subject_portrait(Image.open(BytesIO(data)))
+    except OSError:
+        return
+    path = save_bytes(project.id, "video_person", jpeg_bytes(portrait), ".jpg")
+    session.add(video_person_asset(project.id, path))
 
 
 def _youtube_payload(project: Project) -> dict | None:

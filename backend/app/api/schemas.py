@@ -4,6 +4,7 @@ import re
 
 from pydantic import BaseModel, Field, field_validator
 
+from app.domain.styles import STYLE_IDS
 from app.tools.youtube import parse_video_id
 
 
@@ -13,7 +14,15 @@ class CreateProjectBody(BaseModel):
     brand_kit_id: str | None = None
     creator_profile_id: str | None = None
     channel_id: str | None = None
+    creative_style: str = "cinematic"
     shared: bool = False
+
+    @field_validator("creative_style")
+    @classmethod
+    def known_style(cls, value: str) -> str:
+        if value not in STYLE_IDS:
+            raise ValueError("Choose a creative style.")
+        return value
 
     @field_validator("youtube_url")
     @classmethod
@@ -28,6 +37,14 @@ class CreateProjectBody(BaseModel):
 class UpdateProjectBody(BaseModel):
     favorite: bool | None = None
     shared: bool | None = None
+    creative_style: str | None = None
+
+    @field_validator("creative_style")
+    @classmethod
+    def known_style(cls, value: str | None) -> str | None:
+        if value is not None and value not in STYLE_IDS:
+            raise ValueError("Choose a creative style.")
+        return value
 
 
 class TextUpdate(BaseModel):

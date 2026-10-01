@@ -8,7 +8,7 @@ from app.services.events import publish
 from app.tools.compositor import compose
 from app.tools.critic import critique_image
 from app.tools.image_generation import render_background
-from app.tools.portraits import load_portrait
+from app.tools.portraits import load_people
 
 VISUAL_AXES = {"crop", "expression"}
 
@@ -20,7 +20,7 @@ def apply_immediate(session: Session, generation: Generation, axis: str) -> Gene
         raise ValueError("Thumbnail not found.")
     spec = _adjust(DesignSpec.model_validate(generation.design_spec), axis, project.hooks or [])
     background = load_background(session, generation, spec)
-    composite = compose(background, spec, load_portrait(session, project))
+    composite = compose(background, spec, people=load_people(session, project))
     critique = critique_image(composite, spec)
     created = _save_generation(
         session,
@@ -67,7 +67,7 @@ def _rerender(project_id: str, generation_id: str, axis: str, instruction: str) 
         from app.agents.thumbnail_pipeline import _store_image
 
         background_asset = _store_image(session, project.id, "background", background)
-        composite = compose(background, spec, load_portrait(session, project))
+        composite = compose(background, spec, people=load_people(session, project))
         critique = critique_image(composite, spec)
         created = _save_generation(
             session,

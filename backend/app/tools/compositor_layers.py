@@ -12,17 +12,35 @@ def tint_to_palette(image: Image.Image, palette: list[str]) -> Image.Image:
     return Image.blend(image.convert("RGB"), grade.convert("RGB"), 0.42)
 
 
-def place_portrait(image: Image.Image, portrait: Image.Image, spec: DesignSpec) -> Image.Image:
+def place_people(image: Image.Image, people: list[Image.Image], spec: DesignSpec) -> Image.Image:
+    from PIL import ImageFilter
+
     from app.tools.compositor import cover
 
-    size = 460
-    cropped = cover(portrait.convert("RGB"), size, size)
-    mask = Image.new("L", (size, size), 0)
-    ImageDraw.Draw(mask).ellipse((8, 8, size - 8, size - 8), fill=255)
+    group = people[:3]
+    heights = {1: [620], 2: [540, 480], 3: [480, 440, 400]}[len(group)]
+    side = str(spec.subject.get("position", "right"))
+    base = image.convert("RGBA")
+    for index, (portrait, height) in enumerate(zip(group, heights, strict=True)):
+        width = int(height * 0.72)
+        sprite = _cutout(cover(portrait.convert("RGB"), width, height), ImageFilter.GaussianBlur(8))
+        x, y = _anchor(side, index, len(group), width)
+        base.alpha_composite(sprite, (x, max(y, 0)))
+    return base.convert("RGB")
+
+
+def _cutout(cropped: Image.Image, blur) -> Image.Image:
+    width, height = cropped.size
+    mask = Image.new("L", cropped.size, 0)
+    ImageDraw.Draw(mask).rounded_rectangle((2, 2, width - 2, height - 2), radius=width // 2, fill=255)
+    mask = mask.filter(blur)
     sprite = cropped.convert("RGBA")
     sprite.putalpha(mask)
-    side = str(spec.subject.get("position", "right"))
-    x = 760 if side != "left" else 60
-    base = image.convert("RGBA")
-    base.alpha_composite(sprite, (x, 130))
-    return base.convert("RGB")
+    return sprite
+
+
+def _anchor(side: str, index: int, count: int, width: int) -> tuple[int, int]:
+    step = 90
+    if side == "left":
+        return 24 + index * step, 36 + index * 28
+    return 1280 - width - 24 - (count - 1 - index) * step, 36 + index * 28

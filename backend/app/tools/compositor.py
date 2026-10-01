@@ -44,16 +44,24 @@ def make_studio_background(spec: DesignSpec) -> Image.Image:
     return Image.alpha_composite(image.convert("RGBA"), overlay).convert("RGB")
 
 
-def compose(background: Image.Image, spec: DesignSpec, portrait: Image.Image | None = None) -> Image.Image:
+def compose(
+    background: Image.Image,
+    spec: DesignSpec,
+    portrait: Image.Image | None = None,
+    people: list[Image.Image] | None = None,
+) -> Image.Image:
     image = cover(background.convert("RGB"), *CANVAS)
     if spec.recolor and spec.palette:
         from app.tools.compositor_layers import tint_to_palette
 
         image = tint_to_palette(image, spec.palette)
+    group = list(people or [])
     if portrait is not None:
-        from app.tools.compositor_layers import place_portrait
+        group.insert(0, portrait)
+    if group:
+        from app.tools.compositor_layers import place_people
 
-        image = place_portrait(image, portrait, spec)
+        image = place_people(image, group, spec)
     strength = spec.scrim_strength if spec.scrim_strength > 0 else (0.78 if spec.scrim else 0)
     if strength > 0:
         image = _apply_scrim(image, spec.text.position, strength)

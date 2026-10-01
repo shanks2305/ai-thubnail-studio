@@ -6,6 +6,7 @@ import { FormSection } from "../components/FormSection"
 import { Icon } from "../components/Icon"
 import { LibraryPickers } from "../components/LibraryPickers"
 import { ReferencePicker } from "../components/ReferencePicker"
+import { StylePicker, type CreativeStyleId } from "../components/StylePicker"
 import { Spinner } from "../components/Spinner"
 import { TopBar } from "../components/TopBar"
 import type { ProjectDetail } from "../types"
@@ -23,6 +24,8 @@ export function CreateProject() {
   const [profileId, setProfileId] = useState("")
   const [channelId, setChannelId] = useState("")
   const [face, setFace] = useState<File | null>(null)
+  const [people, setPeople] = useState<File[]>([])
+  const [style, setStyle] = useState<CreativeStyleId>("cinematic")
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
   const tooShort = description.trim().length < MIN_DESCRIPTION
@@ -40,12 +43,18 @@ export function CreateProject() {
           brand_kit_id: brandKitId || null,
           creator_profile_id: profileId || null,
           channel_id: channelId || null,
+          creative_style: style,
         }),
       })
       if (face) {
         const form = new FormData()
         form.append("file", face)
         await api(`/api/projects/${project.id}/face`, { method: "POST", body: form })
+      }
+      if (people.length > 0) {
+        const form = new FormData()
+        people.forEach((file) => form.append("files", file))
+        await api(`/api/projects/${project.id}/people`, { method: "POST", body: form })
       }
       if (files.length > 0) {
         const form = new FormData()
@@ -81,13 +90,16 @@ export function CreateProject() {
               className="field min-h-36 resize-y leading-6"
             />
           </FormSection>
-          <FormSection step={2} title="YouTube link" hint="Pulls the title and context from the video." optional>
+          <FormSection step={2} title="Creative style" hint="The look of the background. Your photos stay photographic on top of it.">
+            <StylePicker value={style} onChange={setStyle} />
+          </FormSection>
+          <FormSection step={3} title="YouTube link" hint="Pulls the title, and uses people already visible in that video when you do not upload photos." optional>
             <input inputMode="url" value={youtube} onChange={(event) => setYoutube(event.target.value)} aria-label="YouTube link" placeholder="https://youtube.com/watch?v=…" className="field" />
           </FormSection>
-          <FormSection step={3} title="References" hint="Thumbnails whose style you want to borrow." optional>
+          <FormSection step={4} title="References" hint="Thumbnails whose style you want to borrow." optional>
             <ReferencePicker files={files} onChange={setFiles} />
           </FormSection>
-          <FormSection step={4} title="Brand and face" hint="A saved kit, a style, a channel, or your photo." optional>
+          <FormSection step={5} title="People and brand" hint="The creator and anyone who appears in the video are placed on the thumbnail." optional>
             <LibraryPickers
               brandKitId={brandKitId}
               profileId={profileId}
@@ -97,6 +109,8 @@ export function CreateProject() {
               onChannel={setChannelId}
               face={face}
               onFace={setFace}
+              people={people}
+              onPeople={setPeople}
             />
           </FormSection>
           {error && <p role="alert" className="mx-6 mb-4 rounded-lg border border-ember/40 bg-ember/5 px-4 py-3 text-sm text-ember">{error}</p>}

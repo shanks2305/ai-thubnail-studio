@@ -15,6 +15,7 @@ from app.tools.storage import read_bytes, save_bytes
 router = APIRouter()
 MAX_BYTES = 8 * 1024 * 1024
 MAX_REFERENCES = 6
+MAX_PEOPLE = 3
 FORMATS = {
     "png": ("PNG", "image/png", "png"),
     "jpeg": ("JPEG", "image/jpeg", "jpg"),
@@ -48,6 +49,26 @@ def upload_references(project_id: str, files: list[UploadFile] = File(...)) -> d
         rows = [asset for asset in session.query(Asset).filter_by(project_id=project.id, kind="reference")]
         references = [{"id": asset.id, "url": f"/api/assets/{asset.id}"} for asset in rows]
     return {"references": references}
+
+
+@router.post("/projects/{project_id}/people", status_code=201)
+def upload_people(project_id: str, files: list[UploadFile] = File(...)) -> dict:
+    prepared = [_read_image(upload) for upload in files]
+    with session_scope() as session:
+        project = require_project(session, project_id)
+        existing = sum(1 for asset in project.assets if asset.kind == "person")
+        if existing + len(prepared) > MAX_PEOPLE:
+            raise HTTPException(status_code=400, detail="A project can hold up to 3 photos of people from the video.")
+        for data, suffix, content_type in prepared:
+            path = save_bytes(project.id, "person", data, suffix)
+            session.add(
+                Asset(id=str(uuid4()), project_id=project.id, kind="person", content_type=content_type, path=path)
+            )
+        project.updated_at = utcnow()
+        session.flush()
+        rows = [asset for asset in session.query(Asset).filter_by(project_id=project.id, kind="person")]
+        people = [{"id": asset.id, "url": f"/api/assets/{asset.id}"} for asset in rows]
+    return {"people": people}
 
 
 @router.post("/projects/{project_id}/face", status_code=201)

@@ -6,7 +6,10 @@ from app.domain.state import DesignSpec
 
 
 def style_context(session: Session, project: Project) -> dict:
-    payload: dict = {}
+    payload: dict = {
+        "creative_style": project.creative_style or "cinematic",
+        "has_people": any(asset.kind in {"face", "person", "video_person"} for asset in project.assets),
+    }
     if project.audience_brief:
         payload["audience_brief"] = project.audience_brief
     if project.brand_kit_id:

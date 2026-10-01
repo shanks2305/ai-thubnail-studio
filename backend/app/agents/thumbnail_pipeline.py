@@ -16,7 +16,7 @@ from app.services.events import publish
 from app.tools.compositor import compose, image_bytes, make_studio_background
 from app.tools.critic import revise_spec
 from app.tools.image_generation import render_background
-from app.tools.portraits import load_portrait
+from app.tools.portraits import load_people
 from app.tools.storage import read_bytes, save_bytes
 
 logger = logging.getLogger(__name__)
@@ -36,14 +36,15 @@ def run_thumbnail_pipeline(project_id: str, concept_id: str, *, finalize: bool =
             apply_brand(spec, context)
             if concept.image_prompt:
                 spec.image_prompt = concept.image_prompt
-            portrait = load_portrait(session, project)
-            if portrait is not None:
+            spec.subject["style"] = project.creative_style or "cinematic"
+            people = load_people(session, project)
+            if people:
                 spec.subject["portrait"] = True
             publish(project.id, {"type": "agent_started", "agent": "image_generator"})
             background, provider = render_background(spec)
             background_asset = _store_image(session, project.id, "background", background)
             record_step(session, project.id, "image_generator", provider, provider, {"asset_id": background_asset.id})
-            _review_loop(session, project, concept, spec, background, background_asset.id, portrait)
+            _review_loop(session, project, concept, spec, background, background_asset.id, people)
             project.status = "ready" if finalize else "generating"
             project.error = None
             project.updated_at = utcnow()
@@ -63,11 +64,11 @@ def load_background(session: Session, generation: Generation, spec: DesignSpec) 
     return make_studio_background(spec)
 
 
-def _review_loop(session, project, concept, spec, background, background_id: str, portrait) -> None:
+def _review_loop(session, project, concept, spec, background, background_id: str, people) -> None:
     settings = get_settings()
     publish(project.id, {"type": "agent_started", "agent": "critic"})
     for attempt in range(1, settings.max_revisions + 2):
-        composite = compose(background, spec, portrait)
+        composite = compose(background, spec, people=people)
         critique = judge_thumbnail(session, project, composite, spec)
         _save_generation(session, project, concept, spec, composite, critique, background_id, attempt)
         if critique.passed or attempt > settings.max_revisions:

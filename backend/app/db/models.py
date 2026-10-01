@@ -29,6 +29,7 @@ class Project(Base):
     brand_kit_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
     creator_profile_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
     channel_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    creative_style: Mapped[str] = mapped_column(String(32), default="cinematic")
     audience_brief: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     shared: Mapped[bool] = mapped_column(Boolean, default=False)
     error: Mapped[str | None] = mapped_column(Text, nullable=True)

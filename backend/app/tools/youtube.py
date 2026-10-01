@@ -1,6 +1,8 @@
+from io import BytesIO
 from urllib.parse import parse_qs, urlparse
 
 import httpx
+from PIL import Image
 from pydantic import BaseModel
 
 YOUTUBE_HOSTS = {"youtube.com", "www.youtube.com", "m.youtube.com", "youtu.be", "www.youtu.be"}
@@ -54,6 +56,26 @@ def fetch_youtube(url: str) -> YoutubeMetadata | None:
         author=str(payload.get("author_name") or "")[:200],
         thumbnail_url=str(payload.get("thumbnail_url") or ""),
     )
+
+
+def video_still_bytes(video_id: str, fallback_url: str) -> bytes | None:
+    urls = [
+        f"https://i.ytimg.com/vi/{video_id}/maxresdefault.jpg",
+        f"https://i.ytimg.com/vi/{video_id}/sddefault.jpg",
+        f"https://i.ytimg.com/vi/{video_id}/hqdefault.jpg",
+        fallback_url,
+    ]
+    for url in urls:
+        data = download_bytes(url)
+        if data is None:
+            continue
+        try:
+            image = Image.open(BytesIO(data))
+        except OSError:
+            continue
+        if image.width >= 320:
+            return data
+    return None
 
 
 def download_bytes(url: str) -> bytes | None:

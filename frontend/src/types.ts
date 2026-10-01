@@ -87,6 +87,7 @@ export type ProjectDetail = ProjectSummary & {
   brand_kit_id: string | null
   creator_profile_id: string | null
   channel_id: string | null
+  creative_style: string
   audience_brief: { viewer: string; belief: string; click_reason: string; avoid: string[] } | null
   reference_profile: Record<string, unknown> | null
   concepts: Concept[]
@@ -94,6 +95,7 @@ export type ProjectDetail = ProjectSummary & {
   agent_runs: AgentRun[]
   references: { id: string; url: string }[]
   face: { id: string; url: string } | null
+  people: { id: string; url: string }[]
   experiments: Experiment[]
 }
 

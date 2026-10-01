@@ -1,6 +1,8 @@
 import re
 from typing import Any
 
+from app.domain.styles import style_prompt
+
 
 def run_task(task: str, payload: dict[str, Any]) -> dict[str, Any]:
     handlers = {
@@ -96,6 +98,8 @@ def _concepts(payload: dict[str, Any]) -> dict[str, Any]:
         ("The question", "skepticism", "The frame asks one question and leaves the answer inside the video.", "Few objects. The question is the only text."),
         ("The stakes", "urgency", "Show what changes if the claim is true.", "Calm on the text side, disruption behind the subject."),
     ]
+    look = style_prompt(str(payload.get("creative_style") or "cinematic"))
+    person = "The creator or a person from the video" if payload.get("has_people") else "A person"
     concepts = []
     for index, (name, emotion, story, composition) in enumerate(frames):
         hook = texts[index % len(texts)]
@@ -105,8 +109,8 @@ def _concepts(payload: dict[str, Any]) -> dict[str, Any]:
                 "name": name,
                 "hook": hook,
                 "visual_story": f"{story} The video is about {topic}.",
-                "subject": f"{story} The subject expresses {emotion} and relates to {topic}. No text in the scene.",
-                "background": "A simple cinematic background with depth, not a collage of tiny details.",
+                "subject": f"{person} fills the foreground and expresses {emotion}. {story} No text in the scene.",
+                "background": f"{look} Depth, not a collage of tiny details.",
                 "composition": composition,
                 "text": hook,
                 "emotional_direction": emotion,
@@ -130,9 +134,10 @@ def _design_spec(payload: dict[str, Any]) -> dict[str, Any]:
     headline = str(concept.get("text") or concept.get("hook") or "WATCH THIS")
     subject = str(concept.get("subject") or "A single expressive subject")
     background = str(concept.get("background") or "A dark cinematic background")
+    style = str(payload.get("creative_style") or "cinematic")
     return {
         "canvas": "1280x720",
-        "subject": {"position": subject_position, "scale": "large", "description": subject},
+        "subject": {"position": subject_position, "scale": "large", "description": subject, "style": style},
         "background": {"description": background, "depth": "medium"},
         "lighting": "Hard key light and deep shadows so the subject reads at thumbnail size.",
         "composition": str(concept.get("composition") or "Subject opposite the headline."),
@@ -145,10 +150,7 @@ def _design_spec(payload: dict[str, Any]) -> dict[str, Any]:
             "stroke": True,
             "vertical": "middle",
         },
-        "image_prompt": (
-            "Photorealistic cinematic still, 16:9, no text, no letters, no logos, no watermark. "
-            f"{subject} {background}"
-        ),
+        "image_prompt": f"{style_prompt(style)} {subject} {background} No text, letters, logos, or watermark.",
         "palette": [str(color) for color in palette][:4],
         "scrim": False,
     }

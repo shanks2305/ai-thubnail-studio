@@ -52,6 +52,7 @@ def create_project(body: CreateProjectBody) -> dict:
         description=body.description.strip(),
         youtube_url=body.youtube_url,
         owner_id=current_owner(),
+        creative_style=body.creative_style,
         shared=body.shared,
     )
     with session_scope() as session:
@@ -73,6 +74,8 @@ def update_project(project_id: str, body: UpdateProjectBody) -> dict:
         project = require_project(session, project_id)
         if body.favorite is not None:
             project.favorite = body.favorite
+        if body.creative_style is not None:
+            project.creative_style = body.creative_style
         if body.shared is not None:
             if project.owner_id != current_owner():
                 raise HTTPException(status_code=403, detail="Only the owner can share this project.")

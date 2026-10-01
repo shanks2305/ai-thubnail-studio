@@ -20,6 +20,8 @@ export function LibraryPickers({
   onChannel,
   face,
   onFace,
+  people,
+  onPeople,
 }: {
   brandKitId: string
   profileId: string
@@ -29,6 +31,8 @@ export function LibraryPickers({
   onChannel: (id: string) => void
   face: File | null
   onFace: (file: File | null) => void
+  people: File[]
+  onPeople: (files: File[]) => void
 }) {
   const library = useLibrary()
   return (
@@ -61,6 +65,18 @@ export function LibraryPickers({
           onChange={(event) => onFace(event.target.files?.[0] ?? null)}
         />
         {face && <span className="mt-1 block text-xs">{face.name}</span>}
+      </label>
+      <label className="text-sm text-mist">
+        People in the video
+        <input
+          type="file"
+          accept="image/png,image/jpeg,image/webp"
+          multiple
+          aria-label="People in the video"
+          className="mt-1 block w-full text-sm"
+          onChange={(event) => onPeople(Array.from(event.target.files ?? []).slice(0, 3))}
+        />
+        {people.length > 0 && <span className="mt-1 block text-xs">{people.map((file) => file.name).join(", ")}</span>}
       </label>
     </div>
   )
