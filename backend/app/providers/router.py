@@ -1,85 +1,63 @@
 import json
 import logging
 
-from app.core.config import get_settings
+from app.core.config import HOSTED_PROVIDERS, TextProvider, get_settings
 from app.providers.base import LLMRequest, LLMResponse, ProviderError
+from app.providers.bedrock import BedrockProvider
 from app.providers.deterministic import DeterministicProvider
 from app.providers.ollama import OllamaProvider, ollama_reachable
 from app.providers.openai_provider import OpenAIProvider
 from app.providers.prompts import load_prompt
+from app.tools.image_generation import image_provider_for
 
 logger = logging.getLogger(__name__)
 
-_deterministic = DeterministicProvider()
-_openai = OpenAIProvider()
-_ollama = OllamaProvider()
+_studio = DeterministicProvider()
+_PROVIDERS = {"studio": _studio, "ollama": OllamaProvider(), "openai": OpenAIProvider(), "bedrock": BedrockProvider()}
+_TEXT_LABELS = {"studio": "the local studio engine", "ollama": "Ollama", "openai": "OpenAI", "bedrock": "AWS Bedrock"}
+_IMAGE_LABELS = {"compositor": "the local compositor", "openai": "OpenAI", "bedrock": "AWS Bedrock"}
 
 
 class ModelRouter:
     def generate(self, *, task: str, payload: dict, privacy_mode: str) -> LLMResponse:
-        provider = self._choose(privacy_mode)
+        provider = _PROVIDERS[text_provider_for(privacy_mode)]
         request = LLMRequest(task=task, system=load_prompt(task), user=json.dumps(payload))
         try:
             return provider.generate(request)
         except ProviderError:
-            if provider is _deterministic or privacy_mode == "cloud" or get_settings().llm_mode != "auto":
+            if provider is _studio or privacy_mode == "cloud":
                 raise
             logger.warning("Provider %s failed for %s; using the studio engine", provider.name, task)
-            return _deterministic.generate(request)
+            return _studio.generate(request)
 
-    def _choose(self, privacy_mode: str):
-        settings = get_settings()
-        if settings.llm_mode == "deterministic":
-            return _deterministic
-        if settings.llm_mode == "openai":
-            return _openai
-        if settings.llm_mode == "ollama":
-            return _ollama
-        if privacy_mode == "local":
-            return _ollama if ollama_reachable() else _deterministic
-        if privacy_mode == "cloud":
-            if not settings.openai_api_key:
-                raise ProviderError("Cloud mode needs an OpenAI API key.")
-            return _openai
-        if settings.openai_api_key:
-            return _openai
-        if ollama_reachable():
-            return _ollama
-        return _deterministic
+
+def text_provider_for(privacy_mode: str) -> TextProvider:
+    provider = get_settings().active_text_provider
+    # Local projects never send data to a hosted model.
+    if privacy_mode == "local" and provider in HOSTED_PROVIDERS:
+        return "ollama" if ollama_reachable() else "studio"
+    return provider
 
 
 def readiness_error(privacy_mode: str) -> str | None:
-    settings = get_settings()
-    if settings.llm_mode == "deterministic":
+    if privacy_mode == "local":
         return None
-    if settings.llm_mode == "openai" and not settings.openai_api_key:
-        return "Set OPENAI_API_KEY or switch the model mode."
-    if privacy_mode == "cloud" and settings.llm_mode == "auto" and not settings.openai_api_key:
-        return "Cloud mode needs an OpenAI API key. Choose Hybrid or Local, or set OPENAI_API_KEY."
-    return None
+    problems = get_settings().missing_credentials()
+    return " ".join(problems) if problems else None
 
 
 def system_status() -> dict[str, object]:
     settings = get_settings()
-    ollama = ollama_reachable() if settings.llm_mode in {"auto", "ollama"} else False
-    openai_ready = bool(settings.openai_api_key) and settings.llm_mode in {"auto", "openai"}
-    if settings.llm_mode == "deterministic":
-        text_provider = "studio-engine"
-        message = "Concepts are written by the local studio engine."
-    elif openai_ready:
-        text_provider = "openai"
-        message = "OpenAI is used for Hybrid and Cloud projects. Local projects stay on this machine."
-    elif ollama or settings.llm_mode == "ollama":
-        text_provider = "ollama"
-        message = f"Ollama ({settings.ollama_model}) can write concepts. Layouts are rendered here."
-    else:
-        text_provider = "studio-engine"
-        message = "No language model is connected. Concepts use the local studio engine."
-    image_provider = "openai" if openai_ready else "studio-compositor"
+    text = settings.active_text_provider
+    image = settings.active_image_provider
     return {
-        "text_provider": text_provider,
-        "image_provider": image_provider,
+        "environment": settings.app_env,
+        "text_provider": text,
+        "image_provider": image,
         "openai_configured": bool(settings.openai_api_key),
-        "ollama_reachable": ollama,
-        "message": message,
+        "ollama_reachable": ollama_reachable() if text == "ollama" else False,
+        "message": (
+            f"{settings.app_env.capitalize()}: concepts by {_TEXT_LABELS[text]}, "
+            f"images by {_IMAGE_LABELS[image]}. Local projects stay on this machine."
+        ),
     }

@@ -1,49 +1,57 @@
-import base64
 import logging
-from io import BytesIO
+from collections.abc import Callable
 
-import httpx
 from PIL import Image
 
-from app.core.config import get_settings
+from app.core.config import ImageProvider, get_settings
 from app.domain.state import DesignSpec
 from app.providers.base import ProviderError
-from app.tools.compositor import cover, make_studio_background
+from app.tools.compositor import CANVAS, cover, make_studio_background
+from app.tools.image_providers import generate_bedrock_image, generate_openai_image
 
 logger = logging.getLogger(__name__)
-CANVAS = (1280, 720)
+PROMPT_LIMIT = 3900
+TEXT_SPACE = {
+    "left": "Keep the left third dark and uncluttered so a headline can sit there.",
+    "right": "Keep the right third dark and uncluttered so a headline can sit there.",
+    "center": "Keep the middle band uncluttered so a large headline can sit there.",
+}
+GENERATORS: dict[ImageProvider, Callable[[str], Image.Image]] = {
+    "openai": generate_openai_image,
+    "bedrock": generate_bedrock_image,
+}
+
+
+def image_provider_for(privacy_mode: str) -> ImageProvider:
+    # Hosted image models would send the prompt off this machine.
+    if privacy_mode == "local":
+        return "compositor"
+    return get_settings().active_image_provider
 
 
 def render_background(spec: DesignSpec, privacy_mode: str) -> tuple[Image.Image, str]:
-    settings = get_settings()
-    allow_cloud = privacy_mode in {"hybrid", "cloud"} and settings.llm_mode in {"auto", "openai"}
-    if allow_cloud and settings.openai_api_key:
-        try:
-            return _openai_image(spec.image_prompt), "openai"
-        except ProviderError:
-            if privacy_mode == "cloud":
-                raise
-            logger.warning("OpenAI image generation failed; using the studio compositor")
-    return make_studio_background(spec), "studio-compositor"
-
-
-def _openai_image(prompt: str) -> Image.Image:
-    settings = get_settings()
+    provider = image_provider_for(privacy_mode)
+    if provider == "compositor":
+        return make_studio_background(spec), "studio-compositor"
     try:
-        response = httpx.post(
-            "https://api.openai.com/v1/images/generations",
-            headers={"Authorization": f"Bearer {settings.openai_api_key}"},
-            json={
-                "model": settings.openai_image_model,
-                "prompt": prompt[:3900],
-                "size": "1792x1024",
-                "response_format": "b64_json",
-            },
-            timeout=180,
-        )
-        response.raise_for_status()
-        encoded = response.json()["data"][0]["b64_json"]
-    except (httpx.HTTPError, KeyError, IndexError) as exc:
-        raise ProviderError("Image generation failed.") from exc
-    image = Image.open(BytesIO(base64.b64decode(encoded))).convert("RGB")
-    return cover(image, *CANVAS)
+        return cover(GENERATORS[provider](thumbnail_prompt(spec)), *CANVAS), provider
+    except ProviderError:
+        if privacy_mode == "cloud":
+            raise
+        logger.warning("%s image generation failed; using the studio compositor", provider)
+        return make_studio_background(spec), "studio-compositor"
+
+
+def thumbnail_prompt(spec: DesignSpec) -> str:
+    subject = spec.subject.get("description", "")
+    subject_side = "left" if spec.subject.get("position") == "left" else "right"
+    parts = [
+        spec.image_prompt or str(subject),
+        f"Setting: {spec.background['description']}." if spec.background.get("description") else "",
+        f"Lighting: {spec.lighting}." if spec.lighting else "",
+        f"YouTube thumbnail background, 16:9, main subject large on the {subject_side} side.",
+        "Cinematic, bold high-contrast colors, sharp focus, dramatic depth.",
+        TEXT_SPACE[spec.text.position],
+        "No text, letters, captions, logos, or watermarks.",
+    ]
+    return " ".join(part for part in parts if part)[:PROMPT_LIMIT]

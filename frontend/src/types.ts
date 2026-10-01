@@ -75,6 +75,7 @@ export type ProjectDetail = ProjectSummary & {
 }
 
 export type SystemStatus = {
+  environment: "development" | "production"
   text_provider: string
   image_provider: string
   message: string

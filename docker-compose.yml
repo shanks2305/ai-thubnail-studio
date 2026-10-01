@@ -6,9 +6,14 @@ services:
     environment:
       DATABASE_URL: sqlite:////data/thumbnail_suite.db
       STORAGE_DIR: /data/storage
-      LLM_MODE: auto
+      APP_ENV: ${APP_ENV:-development}
+      TEXT_PROVIDER: ${TEXT_PROVIDER:-}
+      IMAGE_PROVIDER: ${IMAGE_PROVIDER:-}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      AWS_REGION: ${AWS_REGION:-us-west-2}
+      BEDROCK_TEXT_MODEL: ${BEDROCK_TEXT_MODEL:-}
+      BEDROCK_IMAGE_MODEL: ${BEDROCK_IMAGE_MODEL:-}
     volumes:
       - suite-data:/data
 

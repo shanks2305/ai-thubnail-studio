@@ -20,14 +20,18 @@ npm run dev
 
 Open http://localhost:5173.
 
-Without an API key, concepts come from the local studio engine and thumbnails are composed on this machine. To use a language model:
+Copy `.env.example` to `backend/.env`. `APP_ENV` picks the providers:
 
-- Set `OPENAI_API_KEY` (and optionally `OPENAI_MODEL`, `OPENAI_IMAGE_MODEL`), or
-- Run Ollama and set `OLLAMA_MODEL`
+- **Development** (default): concepts come from Ollama (`TEXT_PROVIDER=ollama`). Ollama can't generate images, so thumbnails use the cheapest hosted tier when a key is set (`gpt-image-2` at `low` quality, or Stable Image Core on Bedrock with `IMAGE_PROVIDER=bedrock`) and the offline compositor otherwise.
+- **Production**: set `TEXT_PROVIDER` and `IMAGE_PROVIDER` to `openai` or `bedrock`. The server refuses to start if either is missing or its credentials aren't configured. Images default to high quality (`gpt-image-2` at `high`, or Stable Image Ultra).
 
-Copy `.env.example` to `backend/.env`. `LLM_MODE=auto` uses OpenAI for Hybrid and Cloud projects, Ollama or the studio engine for Local projects.
+Bedrock uses the standard AWS credential chain (profile, environment variables, or IAM role). Set `BEDROCK_TEXT_MODEL` to a model or inference profile ID enabled in your account and `AWS_REGION`.
 
-Cloud privacy mode refuses to start unless an OpenAI key is set.
+Each project's privacy mode still limits where its data goes:
+
+- **Local**: never sent to a hosted model. Concepts use Ollama or the studio engine; thumbnails use the compositor.
+- **Hybrid**: uses the configured providers and falls back to the local engine and compositor if one fails.
+- **Cloud**: uses the configured providers and reports an error instead of falling back.
 
 ## Tests
 

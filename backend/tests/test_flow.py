@@ -59,7 +59,7 @@ def test_concept_thumbnail_and_export(client):
 
 
 def test_cloud_mode_requires_a_key(client, monkeypatch):
-    monkeypatch.setenv("LLM_MODE", "auto")
+    monkeypatch.setenv("TEXT_PROVIDER", "openai")
     monkeypatch.setenv("OPENAI_API_KEY", "")
     from app.core.config import get_settings
 
