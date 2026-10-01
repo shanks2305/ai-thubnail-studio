@@ -1,0 +1,725 @@
+---
+description: Project-wide engineering rules for Python, React, and TypeScript
+alwaysApply: true
+---
+
+# Project Engineering Rules
+
+These rules apply to all code in this repository.
+
+## 1. Core Principles
+
+Prioritize:
+
+- Correctness
+- Simplicity
+- Readability
+- Maintainability
+- Type safety
+- Security
+- Testability
+- Consistency
+
+Follow these principles:
+
+- KISS — Keep It Simple.
+- DRY — Avoid unnecessary duplication.
+- YAGNI — Do not build functionality that is not required.
+- SOLID — Apply when it genuinely improves the design.
+- Separation of Concerns.
+- Single Responsibility.
+- Composition over inheritance where practical.
+- Prefer explicit behavior over implicit behavior.
+- Prefer readable code over clever code.
+- Prefer maintainability over premature optimization.
+
+Do not apply principles dogmatically. A small amount of duplication can be better than an unnecessary abstraction.
+
+---
+
+## 2. Before Coding
+
+Before changing code:
+
+1. Read the relevant files.
+2. Understand the existing architecture.
+3. Search for existing implementations and patterns.
+4. Reuse existing components, utilities, services, hooks, and types where appropriate.
+5. Understand how the affected code is used.
+6. Check relevant tests.
+7. Follow existing project conventions.
+
+Make the smallest coherent change that solves the task.
+
+Do not rewrite unrelated code.
+
+Do not invent APIs, configuration, database fields, or project behavior.
+
+---
+
+## 3. Code Quality
+
+Write code that another developer can understand without reverse-engineering it.
+
+Prefer:
+
+- Clear names
+- Small focused functions
+- Small focused modules
+- Explicit control flow
+- Strong types
+- Predictable behavior
+- Minimal side effects
+- Early validation
+- Clear error handling
+
+Avoid:
+
+- Deep nesting
+- Giant functions
+- Giant components
+- Global mutable state
+- Hidden side effects
+- Magic values
+- Dead code
+- Commented-out code
+- Clever one-liners
+- Premature optimization
+- Unnecessary abstractions
+
+Comments should explain **why**, not simply restate **what** the code does.
+
+---
+
+## 4. File Size
+
+- Keep source files under 100 lines whenever reasonably possible.
+- Treat 100 lines as a maintainability guideline, not an absolute requirement.
+- When a file approaches 100 lines, look for a natural separation of responsibilities.
+- Split files by responsibility, domain, feature, or reusable functionality.
+- Do not create artificial abstractions just to satisfy the line limit.
+- Do not create tiny files that make the project harder to navigate.
+- Never compress code or remove whitespace just to stay below 100 lines.
+- Tests may exceed 100 lines when keeping related scenarios together improves clarity.
+- If a file significantly exceeds 100 lines, consider whether it contains multiple responsibilities.
+
+The goal is cohesive, understandable modules — not blindly enforcing a number.
+
+---
+
+## 5. TypeScript
+
+Use TypeScript's type system to prevent invalid states and runtime errors.
+
+- Prefer `unknown` over `any`.
+- Avoid `any` unless genuinely unavoidable.
+- Avoid unnecessary type assertions.
+- Prefer type inference when the type is obvious.
+- Define explicit types at important boundaries.
+- Reuse existing types.
+- Avoid duplicate type definitions.
+- Model invalid states so they are difficult to represent.
+- Handle `null` and `undefined` explicitly.
+- Avoid non-null assertions unless the invariant is genuinely guaranteed.
+- Prefer union types over enums when appropriate.
+- Use named constants instead of scattered magic values.
+
+Prefer discriminated unions for mutually exclusive states.
+
+```ts
+type Result =
+  | { status: "success"; data: User }
+  | { status: "error"; error: Error };
+```
+
+Functions with many related parameters should generally use a typed options object.
+
+Public APIs should have meaningful parameter and return types.
+
+---
+
+## 6. React
+
+Use modern React practices.
+
+### Components
+
+- Keep components focused.
+- Prefer composition over large conditional components.
+- Reuse existing components.
+- Keep business logic out of presentation components where practical.
+- Extract genuinely reusable logic into hooks or services.
+- Do not create abstractions for trivial one-off code.
+
+### State
+
+- Keep state close to where it is needed.
+- Avoid global state unless genuinely required.
+- Do not duplicate sources of truth.
+- Prefer derived values over duplicated state.
+- Avoid unnecessary `useState`.
+
+### Effects
+
+Treat `useEffect` as a synchronization mechanism.
+
+Do not use effects when rendering, derived values, or event handlers are sufficient.
+
+Avoid effects that update state solely because another state changed when the value can be derived directly.
+
+Always review effect dependencies carefully.
+
+### Hooks
+
+- Follow the Rules of Hooks.
+- Keep custom hooks focused.
+- Do not create hooks merely to wrap trivial code.
+- Do not hide substantial business logic inside generic hooks without a clear reason.
+
+### Rendering
+
+- Use stable keys for lists.
+- Do not use array indexes as keys when stable identifiers exist.
+- Avoid unnecessary re-renders.
+- Do not use `useMemo`, `useCallback`, or `React.memo` everywhere by default.
+- Use memoization when there is a demonstrated or meaningful benefit.
+
+---
+
+## 7. React Architecture
+
+Prefer clear separation:
+
+```text
+UI / Components
+      ↓
+Hooks / Application Logic
+      ↓
+Services / API Clients
+      ↓
+Backend / External Systems
+```
+
+Do not put API calls, complex business logic, and UI rendering into one component.
+
+Keep reusable business logic independent of React when practical.
+
+Prefer predictable, one-directional data flow.
+
+---
+
+## 8. Python
+
+Write idiomatic, readable Python.
+
+- Use type hints.
+- Prefer simple functions when classes provide no meaningful benefit.
+- Keep functions focused.
+- Avoid unnecessary classes.
+- Prefer standard-library functionality when appropriate.
+- Avoid unnecessary dependencies.
+- Use modern typing syntax supported by the project's Python version.
+- Avoid `Any` unless necessary.
+
+Example:
+
+```python
+def get_user(user_id: int) -> User | None:
+    ...
+```
+
+Use appropriate data models for structured data.
+
+Do not represent complex domain objects as arbitrary dictionaries when a well-defined model improves clarity.
+
+Use immutable structures where immutability improves correctness.
+
+Functions with many related parameters should use an appropriate typed object or dataclass.
+
+---
+
+## 9. Python Architecture
+
+Prefer clear separation:
+
+```text
+API / Routes
+      ↓
+Application / Services
+      ↓
+Domain Logic
+      ↓
+Repositories / Infrastructure
+```
+
+Do not put significant business logic inside route/controller functions.
+
+Do not unnecessarily mix:
+
+- HTTP handling
+- Business logic
+- Database access
+- Serialization
+
+Keep domain logic testable without external services where practical.
+
+Use dependency injection when it improves testability or decoupling.
+
+Do not introduce a DI framework simply for the sake of using dependency injection.
+
+---
+
+## 10. Exceptions and Error Handling
+
+Handle errors intentionally.
+
+Distinguish between:
+
+- Validation errors
+- Business errors
+- Authentication/authorization errors
+- External service failures
+- Programming errors
+
+Rules:
+
+- Catch exceptions only when they can be meaningfully handled.
+- Avoid broad `except Exception` unless justified.
+- Never silently swallow errors.
+- Preserve useful error context.
+- Raise meaningful domain-specific exceptions where appropriate.
+- Do not use exceptions for ordinary control flow.
+- Do not expose sensitive implementation details to users.
+
+Never do:
+
+```python
+try:
+    do_something()
+except Exception:
+    pass
+```
+
+---
+
+## 11. API Design
+
+For API code:
+
+- Validate input at system boundaries.
+- Use appropriate HTTP semantics.
+- Keep request and response contracts explicit.
+- Return predictable response structures.
+- Handle errors consistently.
+- Do not expose internal implementation details.
+- Do not expose database models directly unless intentionally designed that way.
+- Keep authentication and authorization explicit.
+- Never rely on frontend authorization checks alone.
+
+Frontend and backend contracts should remain synchronized where practical.
+
+---
+
+## 12. Database
+
+Keep database access separate from presentation and transport layers.
+
+- Use parameterized queries or safe ORM mechanisms.
+- Never construct SQL using untrusted string interpolation.
+- Use migrations for schema changes.
+- Do not silently modify schemas from application code.
+- Consider existing data during schema changes.
+- Avoid N+1 queries.
+- Avoid unnecessary database calls.
+- Use transactions where atomicity is required.
+- Fetch only the data that is needed.
+- Do not expose sensitive database fields unnecessarily.
+
+---
+
+## 13. Security
+
+Security is mandatory.
+
+Never:
+
+- Hardcode passwords.
+- Hardcode API keys.
+- Commit secrets.
+- Log passwords.
+- Log API keys.
+- Log authentication tokens.
+- Trust client-side authorization.
+- Build SQL with string concatenation.
+- Disable security checks just to make code work.
+
+Always:
+
+- Validate untrusted input.
+- Enforce authorization on the server.
+- Keep secrets outside source control.
+- Use the project's established secret-management mechanism.
+- Protect sensitive data.
+- Fail securely.
+- Consider security implications when adding dependencies or external integrations.
+
+---
+
+## 14. Testing
+
+Tests should verify behavior rather than implementation details.
+
+Prioritize tests for:
+
+- Important business logic
+- API behavior
+- Critical user-facing behavior
+- Edge cases
+- Error handling
+- Security-sensitive behavior
+
+Prefer:
+
+```text
+Unit Tests
+    ↓
+Integration Tests
+    ↓
+End-to-End Tests
+```
+
+Use the lowest level that provides meaningful confidence.
+
+Tests should be deterministic and readable.
+
+Do not modify or remove tests merely to make them pass.
+
+When behavior intentionally changes, update tests to represent the new expected behavior.
+
+---
+
+## 15. React Testing
+
+Test user-visible behavior.
+
+Prefer testing through public component interfaces.
+
+Avoid testing private implementation details.
+
+Test important:
+
+- User interactions
+- Loading states
+- Success states
+- Error states
+- Empty states
+- Accessibility behavior
+
+Avoid excessive snapshot testing.
+
+---
+
+## 16. Python Testing
+
+- Unit-test business logic independently.
+- Use integration tests for databases and external systems.
+- Mock external systems where appropriate.
+- Do not mock the code being tested unnecessarily.
+- Test important failure paths.
+- Keep tests readable.
+
+Tests should clearly communicate:
+
+```text
+Given
+When
+Then
+```
+
+---
+
+## 17. Performance
+
+Do not optimize prematurely.
+
+When performance matters:
+
+1. Measure.
+2. Identify the actual bottleneck.
+3. Make the smallest effective optimization.
+4. Measure again.
+
+Avoid:
+
+- Speculative caching
+- Unnecessary memoization
+- Unnecessary database queries
+- Unnecessary network requests
+- Premature architectural complexity
+
+Use pagination for large datasets.
+
+Batch repeated I/O when appropriate.
+
+---
+
+## 18. Dependencies
+
+Before adding a dependency:
+
+1. Check whether the project already provides the functionality.
+2. Check whether the standard library can solve it.
+3. Consider maintenance and security.
+4. Consider dependency size and complexity.
+5. Confirm that the dependency provides meaningful value.
+
+Do not add dependencies for trivial functionality.
+
+Do not replace existing libraries without a clear reason.
+
+---
+
+## 19. Configuration
+
+- Do not hardcode environment-specific values.
+- Keep secrets outside source control.
+- Validate required configuration at startup when appropriate.
+- Fail early when required configuration is missing.
+- Do not silently fall back to insecure defaults.
+- Keep configuration explicit and discoverable.
+
+---
+
+## 20. Logging
+
+Logs should help diagnose real problems.
+
+Never log:
+
+- Passwords
+- API keys
+- Authentication tokens
+- Private credentials
+- Sensitive personal information
+
+Use appropriate log levels.
+
+Avoid excessive logging in hot paths.
+
+Remove temporary debug logging before completing the task.
+
+---
+
+## 21. Async and Concurrency
+
+Use async programming when it provides a real benefit, especially for I/O-bound workloads.
+
+Do not introduce async complexity unnecessarily.
+
+Avoid blocking operations inside asynchronous code.
+
+Consider:
+
+- Race conditions
+- Shared mutable state
+- Concurrent database operations
+- Resource cleanup
+- Task cancellation
+
+Always clean up resources appropriately.
+
+---
+
+## 22. Resources
+
+Properly manage:
+
+- Files
+- Database connections
+- HTTP connections
+- Streams
+- Locks
+- Background tasks
+
+Prefer Python context managers.
+
+Use established lifecycle and cleanup mechanisms in TypeScript and React.
+
+Do not rely on garbage collection for resources requiring explicit cleanup.
+
+---
+
+## 23. Naming
+
+Names should communicate intent.
+
+Prefer:
+
+```text
+getUserById
+calculateOrderTotal
+isAuthenticated
+fetchUserProfile
+```
+
+Avoid:
+
+```text
+doThing
+processData
+handleStuff
+temp
+foo
+```
+
+Avoid unexplained abbreviations.
+
+Use:
+
+- Python: `snake_case`
+- TypeScript: `camelCase`
+- React components: `PascalCase`
+- Types/classes: `PascalCase`
+- Constants: follow existing project conventions
+
+---
+
+## 24. Project Structure
+
+Organize code by responsibility and domain.
+
+Avoid:
+
+- Giant files
+- Deeply nested directories without purpose
+- Unrelated code in the same module
+- Random utility dumping grounds
+
+Prefer feature/domain-oriented organization when it improves discoverability.
+
+Do not reorganize the entire project for a small feature.
+
+Follow the existing structure unless there is a clear reason to change it.
+
+---
+
+## 25. Refactoring
+
+Refactor when it improves the code involved in the requested change.
+
+Do not perform unrelated large-scale refactors.
+
+When refactoring:
+
+- Preserve behavior unless intentionally changing it.
+- Keep changes incremental.
+- Avoid mixing large refactors with unrelated features.
+- Keep tests passing.
+
+Do not refactor working code merely for stylistic preference.
+
+---
+
+## 26. Git Safety
+
+Never:
+
+- Delete user changes.
+- Reset the repository without permission.
+- Rewrite Git history without permission.
+- Revert unrelated work.
+- Modify unrelated files unnecessarily.
+
+Keep changes focused.
+
+Do not create commits unless explicitly requested.
+
+---
+
+## 27. AI Behavior
+
+When implementing a task:
+
+1. Understand the request.
+2. Inspect relevant code.
+3. Search for existing patterns.
+4. Choose the simplest appropriate solution.
+5. Implement the change.
+6. Review the changed code.
+7. Run relevant tests, type checks, and linters.
+8. Fix issues discovered during verification.
+9. Summarize what changed.
+
+Never claim something was tested or verified unless it actually was.
+
+Never invent project behavior.
+
+Never assume an API exists without checking the repository or documentation.
+
+If ambiguity could materially affect:
+
+- Architecture
+- Security
+- Data
+- Public APIs
+- User-visible behavior
+
+ask for clarification.
+
+For minor ambiguity, follow the strongest existing project convention.
+
+---
+
+## 28. Avoid Overengineering
+
+Do not automatically introduce:
+
+- Design patterns
+- Abstract base classes
+- Generic repositories
+- Dependency injection containers
+- Event buses
+- State-management libraries
+- Service layers
+- Factory classes
+- Complex caching
+- Generic utility frameworks
+
+Introduce them only when the actual problem justifies them.
+
+Prefer:
+
+```text
+Simple solution
+      ↓
+Clear abstraction when repetition appears
+      ↓
+Larger architecture only when complexity requires it
+```
+
+The goal is not the most sophisticated architecture.
+
+The goal is the simplest architecture that remains clean, testable, secure, and maintainable.
+
+---
+
+## 29. Definition of Done
+
+Before completing a task:
+
+- Requested behavior is implemented.
+- Existing behavior is not unintentionally broken.
+- Code follows the existing architecture.
+- Types are correct.
+- Error handling is appropriate.
+- Security implications have been considered.
+- Relevant tests are added or updated.
+- Relevant tests are run when possible.
+- Linting is run when available.
+- Type checking is run when available.
+- No debugging code remains.
+- No unnecessary dependencies were added.
+- No unrelated files were modified.
+- Files remain reasonably sized, preferably under 100 lines.
+- The implementation is understandable to another developer.
+- The final response accurately states what was and was not verified.
