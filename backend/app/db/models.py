@@ -18,6 +18,7 @@ class Project(Base):
     description: Mapped[str] = mapped_column(Text)
     youtube_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     youtube_title: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    # Unused: providers now come from APP_ENV. Kept because existing SQLite files have it as NOT NULL.
     privacy_mode: Mapped[str] = mapped_column(String(20), default="hybrid")
     status: Mapped[str] = mapped_column(String(32), default="draft")
     favorite: Mapped[bool] = mapped_column(Boolean, default=False)

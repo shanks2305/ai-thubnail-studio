@@ -5,6 +5,7 @@ from uuid import uuid4
 from PIL import Image
 from sqlalchemy.orm import Session
 
+from app.agents.judge import judge_thumbnail
 from app.agents.runner import mark_failed, public_error, record_step, run_structured
 from app.core.config import get_settings
 from app.core.database import session_scope
@@ -12,7 +13,7 @@ from app.db.models import Asset, Concept, CritiqueRow, Generation, Project, utcn
 from app.domain.state import DesignSpec
 from app.services.events import publish
 from app.tools.compositor import compose, image_bytes, make_studio_background
-from app.tools.critic import critique_image, revise_spec
+from app.tools.critic import revise_spec
 from app.tools.image_generation import render_background
 from app.tools.storage import read_bytes, save_bytes
 
@@ -28,7 +29,7 @@ def run_thumbnail_pipeline(project_id: str, concept_id: str) -> None:
                 return
             spec = run_structured(session, project, "visual_director", _payload(project, concept), DesignSpec)
             publish(project.id, {"type": "agent_started", "agent": "image_generator"})
-            background, provider = render_background(spec, project.privacy_mode)
+            background, provider = render_background(spec)
             background_asset = _store_image(session, project.id, "background", background)
             record_step(session, project.id, "image_generator", provider, provider, {"asset_id": background_asset.id})
             _review_loop(session, project, concept, spec, background, background_asset.id)
@@ -55,7 +56,7 @@ def _review_loop(session, project: Project, concept: Concept, spec: DesignSpec, 
     publish(project.id, {"type": "agent_started", "agent": "critic"})
     for attempt in range(1, settings.max_revisions + 2):
         composite = compose(background, spec)
-        critique = critique_image(composite, spec)
+        critique = judge_thumbnail(session, project, composite, spec)
         image_asset = _store_image(session, project.id, "composite", composite)
         generation = Generation(
             id=str(uuid4()),
@@ -79,18 +80,14 @@ def _review_loop(session, project: Project, concept: Concept, spec: DesignSpec, 
             )
         )
         session.commit()
-        record_step(
-            session,
-            project.id,
-            "critic",
-            "local-contrast",
-            "pixel-critic",
-            {"generation_id": generation.id, "overall": critique.overall, "passed": critique.passed},
-        )
         publish(project.id, {"type": "generation_completed", "generation_id": generation.id, "attempt": attempt})
         if critique.passed or attempt > settings.max_revisions:
             return
-        spec = revise_spec(spec, critique)
+        revised = revise_spec(spec, critique)
+        # Only text issues can be fixed automatically; re-judging an unchanged spec would repeat the verdict.
+        if revised == spec:
+            return
+        spec = revised
 
 
 def _store_image(session, project_id: str, kind: str, image: Image.Image) -> Asset:

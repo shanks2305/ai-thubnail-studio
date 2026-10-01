@@ -7,12 +7,18 @@ services:
       DATABASE_URL: sqlite:////data/thumbnail_suite.db
       STORAGE_DIR: /data/storage
       APP_ENV: ${APP_ENV:-development}
-      TEXT_PROVIDER: ${TEXT_PROVIDER:-}
+      CHAT_PROVIDER: ${CHAT_PROVIDER:-}
+      JUDGE_PROVIDER: ${JUDGE_PROVIDER:-}
       IMAGE_PROVIDER: ${IMAGE_PROVIDER:-}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_CHAT_MODEL: ${OPENAI_CHAT_MODEL:-}
+      OPENAI_JUDGE_MODEL: ${OPENAI_JUDGE_MODEL:-}
       OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      OLLAMA_CHAT_MODEL: ${OLLAMA_CHAT_MODEL:-}
+      OLLAMA_JUDGE_MODEL: ${OLLAMA_JUDGE_MODEL:-}
       AWS_REGION: ${AWS_REGION:-us-west-2}
-      BEDROCK_TEXT_MODEL: ${BEDROCK_TEXT_MODEL:-}
+      BEDROCK_CHAT_MODEL: ${BEDROCK_CHAT_MODEL:-}
+      BEDROCK_JUDGE_MODEL: ${BEDROCK_JUDGE_MODEL:-}
       BEDROCK_IMAGE_MODEL: ${BEDROCK_IMAGE_MODEL:-}
     volumes:
       - suite-data:/data

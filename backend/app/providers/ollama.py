@@ -1,3 +1,4 @@
+import base64
 import time
 
 import httpx
@@ -34,14 +35,14 @@ class OllamaProvider:
 
     def generate(self, request: LLMRequest) -> LLMResponse:
         settings = get_settings()
+        user: dict[str, object] = {"role": "user", "content": request.user}
+        if request.images:
+            user["images"] = [base64.b64encode(image).decode() for image in request.images]
         payload = {
-            "model": settings.ollama_model,
+            "model": request.model,
             "stream": False,
             "format": "json",
-            "messages": [
-                {"role": "system", "content": request.system},
-                {"role": "user", "content": request.user},
-            ],
+            "messages": [{"role": "system", "content": request.system}, user],
         }
         try:
             response = httpx.post(
@@ -53,4 +54,4 @@ class OllamaProvider:
             content = response.json()["message"]["content"]
         except httpx.HTTPError as exc:
             raise ProviderError("Ollama could not complete this step.") from exc
-        return LLMResponse(content=content, provider=self.name, model=settings.ollama_model)
+        return LLMResponse(content=content, provider=self.name, model=request.model)

@@ -2,13 +2,7 @@ import { useQueryClient } from "@tanstack/react-query"
 import { useState, type DragEvent, type FormEvent } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
 import { ApiError, api } from "../api"
-import type { PrivacyMode, ProjectDetail } from "../types"
-
-const PRIVACY: { id: PrivacyMode; title: string; detail: string }[] = [
-  { id: "local", title: "Local", detail: "Stays on this machine." },
-  { id: "hybrid", title: "Hybrid", detail: "Use a cloud model when one is configured." },
-  { id: "cloud", title: "Cloud", detail: "Requires an OpenAI API key." },
-]
+import type { ProjectDetail } from "../types"
 
 export function CreateProject() {
   const [params] = useSearchParams()
@@ -16,7 +10,6 @@ export function CreateProject() {
   const queryClient = useQueryClient()
   const [description, setDescription] = useState(params.get("prompt") ?? "")
   const [youtube, setYoutube] = useState("")
-  const [privacy, setPrivacy] = useState<PrivacyMode>("hybrid")
   const [files, setFiles] = useState<File[]>([])
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
@@ -37,7 +30,6 @@ export function CreateProject() {
         body: JSON.stringify({
           description,
           youtube_url: youtube.trim() || null,
-          privacy_mode: privacy,
         }),
       })
       if (files.length > 0) {
@@ -92,15 +84,6 @@ export function CreateProject() {
           Drop reference thumbnails, or browse. PNG, JPG, or WebP.
           {files.length > 0 && <span className="mt-3 block text-paper">{files.map((file) => file.name).join(", ")}</span>}
         </label>
-        <fieldset className="grid gap-3 sm:grid-cols-3">
-          {PRIVACY.map((option) => (
-            <label key={option.id} className={`rounded-2xl border px-4 py-3 ${privacy === option.id ? "border-gold bg-panel-2" : "border-line bg-panel"}`}>
-              <input type="radio" name="privacy" className="sr-only" checked={privacy === option.id} onChange={() => setPrivacy(option.id)} />
-              <span className="block font-medium">{option.title}</span>
-              <span className="mt-1 block text-sm text-mist">{option.detail}</span>
-            </label>
-          ))}
-        </fieldset>
         {error && <p className="text-sm text-ember">{error}</p>}
         <button type="submit" disabled={pending || description.trim().length < 8} className="rounded-full bg-ember px-5 py-2.5 text-sm font-medium text-white disabled:opacity-50">
           {pending ? "Starting…" : "Generate concepts"}

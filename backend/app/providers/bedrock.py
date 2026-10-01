@@ -21,17 +21,18 @@ class BedrockProvider:
     name = "bedrock"
 
     def generate(self, request: LLMRequest) -> LLMResponse:
-        settings = get_settings()
-        if not settings.bedrock_text_model:
-            raise ProviderError("BEDROCK_TEXT_MODEL is not set.")
+        if not request.model:
+            raise ProviderError("No Bedrock model is configured for this step.")
+        content: list[dict[str, object]] = [{"text": request.user}]
+        content.extend({"image": {"format": "png", "source": {"bytes": image}}} for image in request.images)
         try:
-            response = bedrock_runtime(settings.aws_region).converse(
-                modelId=settings.bedrock_text_model,
+            response = bedrock_runtime(get_settings().aws_region).converse(
+                modelId=request.model,
                 system=[{"text": f"{request.system}\n\nReturn one JSON object. No markdown."}],
-                messages=[{"role": "user", "content": [{"text": request.user}]}],
+                messages=[{"role": "user", "content": content}],
                 inferenceConfig={"temperature": 0.7},
             )
-            content = response["output"]["message"]["content"][0]["text"]
+            text = response["output"]["message"]["content"][0]["text"]
         except (BotoCoreError, ClientError, KeyError, IndexError) as exc:
             raise ProviderError("Bedrock could not complete this step.") from exc
-        return LLMResponse(content=content, provider=self.name, model=settings.bedrock_text_model)
+        return LLMResponse(content=text, provider=self.name, model=request.model)

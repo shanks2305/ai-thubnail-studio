@@ -13,10 +13,7 @@ def _png() -> bytes:
 def test_concept_thumbnail_and_export(client):
     created = client.post(
         "/api/projects",
-        json={
-            "description": "I tested 20 AI coding tools to see which one can actually replace a developer.",
-            "privacy_mode": "local",
-        },
+        json={"description": "I tested 20 AI coding tools to see which one can actually replace a developer."},
     )
     assert created.status_code == 201
     project_id = created.json()["id"]
@@ -58,18 +55,24 @@ def test_concept_thumbnail_and_export(client):
     assert exported.headers["content-type"] == "image/webp"
 
 
-def test_cloud_mode_requires_a_key(client, monkeypatch):
-    monkeypatch.setenv("TEXT_PROVIDER", "openai")
+def test_generation_requires_credentials_for_the_configured_provider(client, monkeypatch):
+    monkeypatch.setenv("CHAT_PROVIDER", "openai")
     monkeypatch.setenv("OPENAI_API_KEY", "")
     from app.core.config import get_settings
 
     get_settings.cache_clear()
-    created = client.post(
-        "/api/projects",
-        json={"description": "A quiet documentary about city trains.", "privacy_mode": "cloud"},
-    )
+    created = client.post("/api/projects", json={"description": "A quiet documentary about city trains."})
     response = client.post(f"/api/projects/{created.json()['id']}/generate")
     assert response.status_code == 400
+    assert "OPENAI_API_KEY" in response.json()["detail"]
+
+
+def test_system_status_reports_each_agent_role(client):
+    status = client.get("/api/system").json()
+    assert status["environment"] == "development"
+    assert status["chat_provider"] == "studio"
+    assert status["judge_provider"] == "studio"
+    assert status["image_provider"] == "compositor"
 
 
 def test_rejects_a_non_youtube_url(client):

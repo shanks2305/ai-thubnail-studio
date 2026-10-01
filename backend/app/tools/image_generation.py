@@ -22,21 +22,15 @@ GENERATORS: dict[ImageProvider, Callable[[str], Image.Image]] = {
 }
 
 
-def image_provider_for(privacy_mode: str) -> ImageProvider:
-    # Hosted image models would send the prompt off this machine.
-    if privacy_mode == "local":
-        return "compositor"
-    return get_settings().active_image_provider
-
-
-def render_background(spec: DesignSpec, privacy_mode: str) -> tuple[Image.Image, str]:
-    provider = image_provider_for(privacy_mode)
+def render_background(spec: DesignSpec) -> tuple[Image.Image, str]:
+    settings = get_settings()
+    provider: ImageProvider = settings.active_image_provider
     if provider == "compositor":
         return make_studio_background(spec), "studio-compositor"
     try:
         return cover(GENERATORS[provider](thumbnail_prompt(spec)), *CANVAS), provider
     except ProviderError:
-        if privacy_mode == "cloud":
+        if settings.is_production:
             raise
         logger.warning("%s image generation failed; using the studio compositor", provider)
         return make_studio_background(spec), "studio-compositor"

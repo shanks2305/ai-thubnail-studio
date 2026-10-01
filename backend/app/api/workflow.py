@@ -32,7 +32,7 @@ def generate_concepts(project_id: str, background: BackgroundTasks) -> dict[str,
         _ensure_idle(project.status)
         if project.generations:
             raise HTTPException(status_code=409, detail="This project already has thumbnails.")
-        _ensure_ready(project.privacy_mode)
+        _ensure_ready()
         for concept in list(project.concepts):
             session.delete(concept)
         project.status = "analyzing"
@@ -50,7 +50,7 @@ def generate_thumbnail(project_id: str, concept_id: str, background: BackgroundT
         if concept is None or concept.project_id != project.id:
             raise HTTPException(status_code=404, detail="Concept not found.")
         _ensure_idle(project.status)
-        _ensure_ready(project.privacy_mode)
+        _ensure_ready()
         project.status = "generating"
         project.selected_concept_id = concept.id
         project.error = None
@@ -129,8 +129,8 @@ def _ensure_idle(status: str) -> None:
         raise HTTPException(status_code=409, detail="This project is already running.")
 
 
-def _ensure_ready(privacy_mode: str) -> None:
-    message = readiness_error(privacy_mode)
+def _ensure_ready() -> None:
+    message = readiness_error()
     if message:
         raise HTTPException(status_code=400, detail=message)
 

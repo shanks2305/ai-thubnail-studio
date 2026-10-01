@@ -9,7 +9,6 @@ def present_project_summary(project: Project) -> dict:
         "description": project.description,
         "status": project.status,
         "favorite": project.favorite,
-        "privacy_mode": project.privacy_mode,
         "youtube_url": project.youtube_url,
         "updated_at": project.updated_at.isoformat(),
         "cover_url": f"/api/assets/{cover_id}" if cover_id else None,

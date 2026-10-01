@@ -24,10 +24,17 @@ def public_error(exc: Exception) -> str:
     return "The thumbnail workflow stopped before it finished."
 
 
-def run_structured(session: Session, project: Project, task: str, payload: dict, model: type[T]) -> T:
+def run_structured(
+    session: Session,
+    project: Project,
+    task: str,
+    payload: dict,
+    model: type[T],
+    images: tuple[bytes, ...] = (),
+) -> T:
     run = _start(session, project.id, task)
     try:
-        response = router.generate(task=task, payload=payload, privacy_mode=project.privacy_mode)
+        response = router.generate(task=task, payload=payload, images=images)
         parsed = model.model_validate_json(extract_json(response.content))
     except Exception as exc:
         _finish(session, run, "failed", error=public_error(exc))

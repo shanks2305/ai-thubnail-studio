@@ -7,7 +7,8 @@ def client(tmp_path, monkeypatch):
     monkeypatch.setenv("DATABASE_URL", f"sqlite:///{tmp_path / 'app.db'}")
     monkeypatch.setenv("STORAGE_DIR", str(tmp_path / "storage"))
     monkeypatch.setenv("APP_ENV", "development")
-    monkeypatch.setenv("TEXT_PROVIDER", "studio")
+    monkeypatch.setenv("CHAT_PROVIDER", "studio")
+    monkeypatch.setenv("JUDGE_PROVIDER", "studio")
     monkeypatch.setenv("IMAGE_PROVIDER", "compositor")
     monkeypatch.setenv("OPENAI_API_KEY", "")
     from app.core.config import get_settings

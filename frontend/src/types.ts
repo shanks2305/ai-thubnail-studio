@@ -1,5 +1,3 @@
-export type PrivacyMode = "local" | "hybrid" | "cloud"
-
 export type ProjectStatus =
   | "draft"
   | "analyzing"
@@ -14,7 +12,6 @@ export type ProjectSummary = {
   description: string
   status: ProjectStatus
   favorite: boolean
-  privacy_mode: PrivacyMode
   youtube_url: string | null
   updated_at: string
   cover_url: string | null
@@ -76,7 +73,8 @@ export type ProjectDetail = ProjectSummary & {
 
 export type SystemStatus = {
   environment: "development" | "production"
-  text_provider: string
+  chat_provider: string
+  judge_provider: string
   image_provider: string
   message: string
 }

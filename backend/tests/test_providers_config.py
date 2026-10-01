@@ -2,10 +2,18 @@ import pytest
 from pydantic import ValidationError
 
 from app.core.config import Settings, get_settings
-from app.providers.router import text_provider_for
-from app.tools.image_generation import image_provider_for
 
-PROVIDER_ENV = ("APP_ENV", "TEXT_PROVIDER", "IMAGE_PROVIDER", "OPENAI_API_KEY", "BEDROCK_TEXT_MODEL", "OPENAI_IMAGE_QUALITY")
+PROVIDER_ENV = (
+    "APP_ENV",
+    "CHAT_PROVIDER",
+    "JUDGE_PROVIDER",
+    "IMAGE_PROVIDER",
+    "OPENAI_API_KEY",
+    "BEDROCK_CHAT_MODEL",
+    "BEDROCK_JUDGE_MODEL",
+    "OPENAI_IMAGE_QUALITY",
+)
+HOSTED = {"CHAT_PROVIDER": "openai", "JUDGE_PROVIDER": "openai", "IMAGE_PROVIDER": "openai", "OPENAI_API_KEY": "sk"}
 
 
 @pytest.fixture
@@ -24,43 +32,52 @@ def env(monkeypatch, tmp_path):
     get_settings.cache_clear()
 
 
-def test_development_defaults_to_ollama_and_offline_images(env):
+def test_development_runs_every_role_locally(env):
     settings = env()
-    assert settings.active_text_provider == "ollama"
+    assert settings.provider_for("chat") == "ollama"
+    assert settings.provider_for("judge") == "ollama"
+    assert settings.model_for("chat") == "llama3.2"
+    assert settings.model_for("judge") == "qwen2.5vl"
     assert settings.active_image_provider == "compositor"
+    assert settings.missing_credentials() == []
 
 
-def test_development_uses_cheap_openai_images_when_a_key_is_set(env):
-    settings = env(OPENAI_API_KEY="sk")
+def test_development_can_opt_into_a_hosted_role(env):
+    settings = env(IMAGE_PROVIDER="openai", OPENAI_API_KEY="sk")
     assert settings.active_image_provider == "openai"
     assert settings.image_quality == "low"
     assert settings.bedrock_image_model_id == "stability.stable-image-core-v1:1"
 
 
-def test_production_uses_high_quality_defaults(env):
-    settings = env(APP_ENV="production", TEXT_PROVIDER="bedrock", IMAGE_PROVIDER="bedrock", BEDROCK_TEXT_MODEL="m")
+def test_production_uses_hosted_models_and_high_quality(env):
+    settings = env(APP_ENV="production", **HOSTED)
+    assert settings.model_for("chat") == "gpt-4o-mini"
+    assert settings.model_for("judge") == "gpt-4o-mini"
     assert settings.image_quality == "high"
+
+
+def test_bedrock_judge_defaults_to_the_chat_model(env):
+    settings = env(
+        APP_ENV="production",
+        CHAT_PROVIDER="bedrock",
+        JUDGE_PROVIDER="bedrock",
+        IMAGE_PROVIDER="bedrock",
+        BEDROCK_CHAT_MODEL="claude",
+    )
+    assert settings.model_for("judge") == "claude"
     assert settings.bedrock_image_model_id == "stability.stable-image-ultra-v1:1"
 
 
 @pytest.mark.parametrize(
-    "values",
+    "overrides",
     [
-        {"TEXT_PROVIDER": "ollama", "IMAGE_PROVIDER": "openai", "OPENAI_API_KEY": "sk"},
-        {"TEXT_PROVIDER": "openai", "IMAGE_PROVIDER": "compositor", "OPENAI_API_KEY": "sk"},
-        {"TEXT_PROVIDER": "openai", "IMAGE_PROVIDER": "openai"},
-        {"TEXT_PROVIDER": "bedrock", "IMAGE_PROVIDER": "bedrock"},
+        {"CHAT_PROVIDER": "ollama"},
+        {"JUDGE_PROVIDER": "studio"},
+        {"IMAGE_PROVIDER": "compositor"},
+        {"OPENAI_API_KEY": ""},
+        {"CHAT_PROVIDER": "bedrock"},
     ],
 )
-def test_production_refuses_to_start_without_hosted_providers(env, values):
+def test_production_refuses_to_start_without_hosted_providers(env, overrides):
     with pytest.raises(ValidationError):
-        env(APP_ENV="production", **values)
-
-
-def test_local_projects_never_use_hosted_providers(env, monkeypatch):
-    env(TEXT_PROVIDER="openai", IMAGE_PROVIDER="openai", OPENAI_API_KEY="sk")
-    monkeypatch.setattr("app.providers.router.ollama_reachable", lambda: False)
-    assert text_provider_for("local") == "studio"
-    assert image_provider_for("local") == "compositor"
-    assert text_provider_for("hybrid") == "openai"
-    assert image_provider_for("cloud") == "openai"
+        env(APP_ENV="production", **{**HOSTED, **overrides})

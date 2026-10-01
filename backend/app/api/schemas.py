@@ -8,7 +8,6 @@ from app.tools.youtube import parse_video_id
 class CreateProjectBody(BaseModel):
     description: str = Field(min_length=8, max_length=5000)
     youtube_url: str | None = None
-    privacy_mode: Literal["local", "hybrid", "cloud"] = "hybrid"
 
     @field_validator("youtube_url")
     @classmethod

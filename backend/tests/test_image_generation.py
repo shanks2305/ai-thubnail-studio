@@ -68,7 +68,7 @@ class _FakeBedrock:
 def test_openai_image_uses_quality_for_the_environment(settings, monkeypatch):
     settings()
     sent = _patch_openai(monkeypatch, lambda request: httpx.Response(200, json={"data": [{"b64_json": _encoded_png()}]}))
-    image, provider = render_background(_spec(), "hybrid")
+    image, provider = render_background(_spec())
     assert provider == "openai"
     assert image.size == (1280, 720)
     assert json.loads(sent[0].content)["quality"] == "low"
@@ -78,25 +78,25 @@ def test_bedrock_image_requests_a_16_by_9_stability_image(settings, monkeypatch)
     settings(IMAGE_PROVIDER="bedrock")
     fake = _FakeBedrock({"images": [_encoded_png()], "finish_reasons": [None]})
     monkeypatch.setattr(image_providers, "bedrock_runtime", lambda region: fake)
-    image, provider = render_background(_spec(), "hybrid")
+    image, provider = render_background(_spec())
     assert provider == "bedrock"
     assert image.size == (1280, 720)
     assert fake.calls[0]["modelId"] == "stability.stable-image-core-v1:1"
     assert json.loads(fake.calls[0]["body"])["aspect_ratio"] == "16:9"
 
 
-def test_filtered_bedrock_image_raises_in_cloud_mode(settings, monkeypatch):
-    settings(IMAGE_PROVIDER="bedrock")
+def test_filtered_bedrock_image_raises_in_production(settings, monkeypatch):
+    settings(APP_ENV="production", CHAT_PROVIDER="openai", JUDGE_PROVIDER="openai", IMAGE_PROVIDER="bedrock")
     fake = _FakeBedrock({"images": [], "finish_reasons": ["Filter reason: prompt"]})
     monkeypatch.setattr(image_providers, "bedrock_runtime", lambda region: fake)
     with pytest.raises(ProviderError):
-        render_background(_spec(), "cloud")
+        render_background(_spec())
 
 
-def test_hybrid_falls_back_to_compositor_when_generation_fails(settings, monkeypatch):
+def test_development_falls_back_to_compositor_when_generation_fails(settings, monkeypatch):
     settings()
     _patch_openai(monkeypatch, lambda request: httpx.Response(500))
-    _, provider = render_background(_spec(), "hybrid")
+    _, provider = render_background(_spec())
     assert provider == "studio-compositor"
 
 

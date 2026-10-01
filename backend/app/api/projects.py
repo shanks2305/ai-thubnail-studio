@@ -39,7 +39,6 @@ def create_project(body: CreateProjectBody) -> dict:
         title=title_from_description(body.description),
         description=body.description.strip(),
         youtube_url=body.youtube_url,
-        privacy_mode=body.privacy_mode,
     )
     with session_scope() as session:
         session.add(project)

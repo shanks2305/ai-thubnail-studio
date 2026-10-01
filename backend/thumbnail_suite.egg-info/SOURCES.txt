@@ -3,6 +3,7 @@ app/__init__.py
 app/main.py
 app/agents/__init__.py
 app/agents/concept_pipeline.py
+app/agents/judge.py
 app/agents/runner.py
 app/agents/thumbnail_pipeline.py
 app/api/__init__.py
@@ -21,6 +22,7 @@ app/domain/__init__.py
 app/domain/state.py
 app/providers/__init__.py
 app/providers/base.py
+app/providers/bedrock.py
 app/providers/deterministic.py
 app/providers/json_text.py
 app/providers/ollama.py
@@ -36,10 +38,15 @@ app/tools/compositor.py
 app/tools/critic.py
 app/tools/image_analysis.py
 app/tools/image_generation.py
+app/tools/image_providers.py
 app/tools/storage.py
 app/tools/youtube.py
 tests/test_critic.py
 tests/test_flow.py
+tests/test_image_generation.py
+tests/test_judge.py
+tests/test_model_router.py
+tests/test_providers_config.py
 tests/test_youtube.py
 thumbnail_suite.egg-info/PKG-INFO
 thumbnail_suite.egg-info/SOURCES.txt
