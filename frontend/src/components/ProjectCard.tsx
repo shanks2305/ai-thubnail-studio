@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom"
+import { DeleteButton } from "./DeleteButton"
 import { Icon } from "./Icon"
 import { StatusPill } from "./StatusPill"
 import type { ProjectSummary } from "../types"
@@ -21,9 +22,10 @@ function formatUpdated(iso: string) {
 type Props = {
   project: ProjectSummary
   onToggleFavorite: (project: ProjectSummary) => void
+  onDelete: (project: ProjectSummary) => void
 }
 
-export function ProjectCard({ project, onToggleFavorite }: Props) {
+export function ProjectCard({ project, onToggleFavorite, onDelete }: Props) {
   const href = `/projects/${project.id}`
 
   return (
@@ -47,15 +49,22 @@ export function ProjectCard({ project, onToggleFavorite }: Props) {
             <span className="text-xs text-mist">{formatUpdated(project.updated_at)}</span>
           </div>
         </div>
-        <button
-          type="button"
-          onClick={() => onToggleFavorite(project)}
-          aria-pressed={project.favorite}
-          aria-label={project.favorite ? "Remove from saved" : "Save project"}
-          className={`grid h-8 w-8 shrink-0 place-items-center rounded-md transition ${project.favorite ? "text-gold" : "text-mist/60 hover:bg-panel-2 hover:text-paper"}`}
-        >
-          <Icon name="star" filled={project.favorite} />
-        </button>
+        <div className="flex shrink-0 items-center">
+          <DeleteButton
+            label="project"
+            disabled={project.status === "analyzing" || project.status === "generating"}
+            onDelete={() => onDelete(project)}
+          />
+          <button
+            type="button"
+            onClick={() => onToggleFavorite(project)}
+            aria-pressed={project.favorite}
+            aria-label={project.favorite ? "Remove from saved" : "Save project"}
+            className={`grid h-8 w-8 place-items-center rounded-md transition ${project.favorite ? "text-gold" : "text-mist/60 hover:bg-panel-2 hover:text-paper"}`}
+          >
+            <Icon name="star" filled={project.favorite} />
+          </button>
+        </div>
       </div>
     </article>
   )

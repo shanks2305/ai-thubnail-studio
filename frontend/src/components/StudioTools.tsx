@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { useState } from "react"
 import { api } from "../api"
 import type { ProjectDetail } from "../types"
+import { DeleteButton, reportDelete } from "./DeleteButton"
 
 export function StudioTools({ project }: { project: ProjectDetail }) {
   const queryClient = useQueryClient()
@@ -30,6 +31,11 @@ export function StudioTools({ project }: { project: ProjectDetail }) {
     mutationFn: ({ id, winner }: { id: string; winner: string }) =>
       api(`/api/experiments/${id}`, { method: "PATCH", body: JSON.stringify({ winner_id: winner }) }),
     onSuccess: refresh,
+  })
+  const removeTest = useMutation({
+    mutationFn: (id: string) => api(`/api/experiments/${id}`, { method: "DELETE" }),
+    onSuccess: refresh,
+    onError: reportDelete,
   })
 
   return (
@@ -73,6 +79,7 @@ export function StudioTools({ project }: { project: ProjectDetail }) {
           <button type="button" className="chip" onClick={() => choose.mutate({ id: item.id, winner: item.generation_a_id })}>A wins</button>
           <button type="button" className="chip" onClick={() => choose.mutate({ id: item.id, winner: item.generation_b_id })}>B wins</button>
           {item.winner_id && <span>Winner saved</span>}
+          <DeleteButton label="test" disabled={project.status === "analyzing" || project.status === "generating"} onDelete={() => removeTest.mutate(item.id)} />
         </div>
       ))}
     </section>

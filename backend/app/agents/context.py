@@ -12,6 +12,8 @@ def style_context(session: Session, project: Project) -> dict:
     }
     if project.audience_brief:
         payload["audience_brief"] = project.audience_brief
+    if project.research_brief:
+        payload["research_brief"] = project.research_brief
     if project.brand_kit_id:
         kit = session.get(BrandKit, project.brand_kit_id)
         if kit is not None:

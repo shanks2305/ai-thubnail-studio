@@ -1,3 +1,4 @@
+import { DeleteButton } from "./DeleteButton"
 import { Icon } from "./Icon"
 import { Spinner } from "./Spinner"
 
@@ -20,7 +21,7 @@ function SaveIndicator({ save }: { save: SaveState }) {
   )
 }
 
-export function EditorToolbar({ save, generationId }: { save: SaveState; generationId: string }) {
+export function EditorToolbar({ save, generationId, onDelete }: { save: SaveState; generationId: string; onDelete: () => void }) {
   return (
     <>
       <span aria-live="polite" className="mr-2">
@@ -35,6 +36,7 @@ export function EditorToolbar({ save, generationId }: { save: SaveState; generat
           </a>
         ))}
       </div>
+      <DeleteButton label="thumbnail" onDelete={onDelete} />
     </>
   )
 }

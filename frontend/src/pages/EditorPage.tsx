@@ -1,7 +1,8 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useEffect, useState } from "react"
-import { Link, useParams } from "react-router-dom"
+import { Link, useNavigate, useParams } from "react-router-dom"
 import { ApiError, api } from "../api"
+import { reportDelete } from "../components/DeleteButton"
 import { EditorToolbar, type SaveState } from "../components/EditorToolbar"
 import { HeadlineControls } from "../components/HeadlineControls"
 import { LayoutControls } from "../components/LayoutControls"
@@ -11,6 +12,7 @@ import type { Generation, ProjectDetail } from "../types"
 
 export function EditorPage() {
   const { projectId = "", generationId = "" } = useParams()
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const project = useQuery({
     queryKey: ["project", projectId],
@@ -77,7 +79,15 @@ export function EditorPage() {
   return (
     <>
       <TopBar crumbs={crumbs}>
-        <EditorToolbar save={save} generationId={generationId} />
+        <EditorToolbar
+          save={save}
+          generationId={generationId}
+          onDelete={() => {
+            void api(`/api/generations/${generationId}`, { method: "DELETE" })
+              .then(() => navigate(`/projects/${projectId}`))
+              .catch(reportDelete)
+          }}
+        />
       </TopBar>
       <main className="flex flex-1 flex-col lg:flex-row">
         <div className="bg-dots flex flex-1 items-center justify-center p-6 lg:p-10">

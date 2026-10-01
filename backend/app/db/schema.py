@@ -11,6 +11,7 @@ _ADDITIONS: dict[str, list[tuple[str, str, str]]] = {
         ("channel_id", "VARCHAR(36)", "VARCHAR(36)"),
         ("creative_style", "VARCHAR(32) NOT NULL DEFAULT 'cinematic'", "VARCHAR(32) NOT NULL DEFAULT 'cinematic'"),
         ("audience_brief", "JSON", "JSON"),
+        ("research_brief", "JSON", "JSON"),
         ("shared", "BOOLEAN NOT NULL DEFAULT 0", "BOOLEAN NOT NULL DEFAULT false"),
     ],
     "concepts": [

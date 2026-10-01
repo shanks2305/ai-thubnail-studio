@@ -30,6 +30,18 @@ def read_bytes(path: str) -> bytes:
     return resolved.read_bytes()
 
 
+def delete_file(path: str) -> None:
+    if path.startswith("s3://"):
+        from app.tools.storage_s3 import delete_s3
+
+        delete_s3(path)
+        return
+    resolved = Path(path).resolve()
+    root = get_settings().storage_path
+    if resolved.is_relative_to(root):
+        resolved.unlink(missing_ok=True)
+
+
 def delete_project_files(project_id: str) -> None:
     if get_settings().storage_backend == "s3":
         from app.tools.storage_s3 import delete_prefix

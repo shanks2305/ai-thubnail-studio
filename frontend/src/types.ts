@@ -89,6 +89,7 @@ export type ProjectDetail = ProjectSummary & {
   channel_id: string | null
   creative_style: string
   audience_brief: { viewer: string; belief: string; click_reason: string; avoid: string[] } | null
+  research_brief: ResearchBrief | null
   reference_profile: Record<string, unknown> | null
   concepts: Concept[]
   generations: Generation[]
@@ -96,7 +97,19 @@ export type ProjectDetail = ProjectSummary & {
   references: { id: string; url: string }[]
   face: { id: string; url: string } | null
   people: { id: string; url: string }[]
+  popular: { id: string; url: string }[]
   experiments: Experiment[]
+}
+
+export type ResearchBrief = {
+  game: { name: string; summary: string; source: string } | null
+  facts: string[]
+  names: string[]
+  numbers: string[]
+  visual_anchor: string
+  do_not_invent: string[]
+  face_count: number
+  popular_videos: { title: string; views: number; url: string }[]
 }
 
 export type Experiment = {

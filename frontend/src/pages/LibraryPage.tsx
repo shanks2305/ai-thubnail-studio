@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { useState, type FormEvent } from "react"
 import { api } from "../api"
+import { DeleteButton, reportDelete } from "../components/DeleteButton"
 import { TopBar } from "../components/TopBar"
 import { useLibrary } from "../components/LibraryPickers"
 
@@ -31,6 +32,11 @@ export function LibraryPage() {
     },
     onError: (caught: Error) => setError(caught.message),
   })
+  const remove = useMutation({
+    mutationFn: (path: string) => api(path, { method: "DELETE" }),
+    onSuccess: refresh,
+    onError: reportDelete,
+  })
   const createChannel = useMutation({
     mutationFn: () => api("/api/channels", { method: "POST", body: JSON.stringify({ name: channel }) }),
     onSuccess: () => {
@@ -50,10 +56,11 @@ export function LibraryPage() {
             {library.kits.map((kit) => (
               <li key={kit.id} className="flex items-center justify-between gap-3">
                 <span>{kit.name}</span>
-                <span className="flex gap-1">
+                <span className="flex items-center gap-1">
                   {kit.colors.map((color) => (
                     <span key={color} className="h-4 w-4 rounded-sm ring-1 ring-line" style={{ background: color }} />
                   ))}
+                  <DeleteButton label="brand kit" onDelete={() => remove.mutate(`/api/brand-kits/${kit.id}`)} />
                 </span>
               </li>
             ))}
@@ -74,7 +81,10 @@ export function LibraryPage() {
           <p className="text-sm text-mist">A channel remembers the style of projects you teach it.</p>
           <ul className="space-y-2 text-sm">
             {library.channels.map((item) => (
-              <li key={item.id}>{item.name}</li>
+              <li key={item.id} className="flex items-center justify-between gap-3">
+                <span>{item.name}</span>
+                <DeleteButton label="channel" onDelete={() => remove.mutate(`/api/channels/${item.id}`)} />
+              </li>
             ))}
           </ul>
           <form className="flex gap-2" onSubmit={(event) => { event.preventDefault(); createChannel.mutate() }}>
@@ -84,7 +94,10 @@ export function LibraryPage() {
           <h2 className="text-lg font-semibold">Saved styles</h2>
           <ul className="space-y-2 text-sm">
             {library.profiles.map((profile) => (
-              <li key={profile.id}>{profile.name}</li>
+              <li key={profile.id} className="flex items-center justify-between gap-3">
+                <span>{profile.name}</span>
+                <DeleteButton label="saved style" onDelete={() => remove.mutate(`/api/profiles/${profile.id}`)} />
+              </li>
             ))}
             {library.profiles.length === 0 && <li className="text-mist">Save a style from a project after concepts are ready.</li>}
           </ul>

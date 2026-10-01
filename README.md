@@ -43,9 +43,11 @@ Copy `.env.example` to `backend/.env`. The studio runs three kinds of agent, eac
 
 | Role | Agents | Setting |
 |---|---|---|
-| Chat | video analyst, reference analyst, hook strategist, creative director, visual director | `CHAT_PROVIDER` |
+| Chat | video analyst, audience analyst, researcher, reference analyst, hook strategist, creative director, visual director | `CHAT_PROVIDER` |
 | Judge | critic: runs pixel checks, then a vision model scores the rendered thumbnail | `JUDGE_PROVIDER` |
 | Image | renders the background | `IMAGE_PROVIDER` |
+
+Set `YOUTUBE_API_KEY` to let the researcher save popular thumbnails for the same game or live stream. Player photos come from frames of the linked video. The game page comes from Wikipedia.
 
 `APP_ENV` decides where they run. Users don't choose.
 

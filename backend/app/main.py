@@ -9,6 +9,7 @@ from app.api.access import PUBLIC_PATHS, resolve_owner, set_owner
 from app.api.library_routes import router as library_router
 from app.api.media import router as media_router
 from app.api.projects import router as projects_router
+from app.api.removals import router as removals_router
 from app.api.studio import router as studio_router
 from app.api.workflow import router as workflow_router
 from app.core.config import get_settings
@@ -38,6 +39,7 @@ def create_app() -> FastAPI:
     app.include_router(studio_router, prefix="/api")
     app.include_router(library_router, prefix="/api")
     app.include_router(media_router, prefix="/api")
+    app.include_router(removals_router, prefix="/api")
 
     @app.middleware("http")
     async def attach_owner(request: Request, call_next):

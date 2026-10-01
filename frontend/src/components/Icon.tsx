@@ -11,6 +11,7 @@ const PATHS = {
   layers: "M12 3l9 5-9 5-9-5zM3 13l9 5 9-5",
   check: "M5 12.5l4.5 4.5L19 7",
   x: "M6 6l12 12M18 6L6 18",
+  trash: "M4 7h16M9 7V5h6v2M7 7l1 13h8l1-13M10 11v6M14 11v6",
 } as const
 
 export type IconName = keyof typeof PATHS

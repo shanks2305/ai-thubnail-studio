@@ -5,16 +5,18 @@ from uuid import uuid4
 from PIL import Image
 
 from app.agents.context import style_context
+from app.agents.research import gather_research, merge_research
 from app.agents.runner import mark_failed, public_error, run_structured
 from app.core.database import session_scope
 from app.db.models import Asset, Concept, Project, utcnow
+from app.domain.research import ResearchBrief
 from app.domain.state import AudienceBrief, ConceptList, HookList, ReferenceProfile, VideoBrief
 from app.providers.base import ProviderError
 from app.services.events import publish
 from app.tools.image_analysis import analyze_image
 from app.tools.storage import save_bytes
 from app.tools.portraits import has_uploaded_people, jpeg_bytes, subject_portrait, video_person_asset
-from app.tools.youtube import download_bytes, fetch_youtube, video_still_bytes
+from app.tools.youtube import YoutubeMetadata, download_bytes, fetch_youtube, video_still_bytes
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +27,7 @@ def run_concept_pipeline(project_id: str, archive: bool = False) -> None:
             project = session.get(Project, project_id)
             if project is None:
                 return
-            _enrich_youtube(session, project)
+            metadata = _enrich_youtube(session, project)
             base = {
                 "description": project.description,
                 "youtube": _youtube_payload(project),
@@ -43,6 +45,16 @@ def run_concept_pipeline(project_id: str, archive: bool = False) -> None:
                 AudienceBrief,
             )
             project.audience_brief = audience.model_dump()
+            session.commit()
+            gathered = gather_research(session, project, brief, author=metadata.author if metadata else "")
+            research = run_structured(
+                session,
+                project,
+                "researcher",
+                {**base, "video_brief": brief.model_dump(), "gathered": gathered},
+                ResearchBrief,
+            )
+            project.research_brief = merge_research(research.model_dump(), gathered)
             session.commit()
             context = {**base, "video_brief": brief.model_dump(), **style_context(session, project)}
 
@@ -92,12 +104,12 @@ def run_concept_pipeline(project_id: str, archive: bool = False) -> None:
         mark_failed(project_id, public_error(exc))
 
 
-def _enrich_youtube(session, project: Project) -> None:
+def _enrich_youtube(session, project: Project) -> YoutubeMetadata | None:
     if not project.youtube_url:
-        return
+        return None
     metadata = fetch_youtube(project.youtube_url)
     if metadata is None:
-        return
+        return None
     project.youtube_title = metadata.title
     project.title = metadata.title[:200]
     already_has_reference = any(asset.kind == "reference" for asset in project.assets)
@@ -115,6 +127,7 @@ def _enrich_youtube(session, project: Project) -> None:
         )
     _capture_video_person(session, project, metadata)
     session.commit()
+    return metadata
 
 
 def _capture_video_person(session, project: Project, metadata) -> None:
@@ -140,7 +153,7 @@ def _youtube_payload(project: Project) -> dict | None:
 def _reference_payload(project: Project) -> list[dict[str, object]]:
     analyses: list[dict[str, object]] = []
     for asset in project.assets:
-        if asset.kind != "reference":
+        if asset.kind not in {"reference", "popular"}:
             continue
         try:
             analyses.append(analyze_image(asset.path))

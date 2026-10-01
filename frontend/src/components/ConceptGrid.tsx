@@ -1,5 +1,6 @@
 import { useState } from "react"
 import type { Concept } from "../types"
+import { DeleteButton } from "./DeleteButton"
 import { Icon } from "./Icon"
 import { Spinner } from "./Spinner"
 
@@ -9,9 +10,10 @@ type Props = {
   pendingId: string | null
   renderedIds: string[]
   onGenerate: (conceptId: string, prompt: string) => void
+  onDelete: (conceptId: string) => void
 }
 
-export function ConceptGrid({ concepts, busy, pendingId, renderedIds, onGenerate }: Props) {
+export function ConceptGrid({ concepts, busy, pendingId, renderedIds, onGenerate, onDelete }: Props) {
   const visible = concepts.filter((concept) => !concept.archived)
   return (
     <section>
@@ -30,6 +32,7 @@ export function ConceptGrid({ concepts, busy, pendingId, renderedIds, onGenerate
             pending={pendingId === concept.id}
             rendered={renderedIds.includes(concept.id)}
             onGenerate={onGenerate}
+            onDelete={() => onDelete(concept.id)}
           />
         ))}
       </div>
@@ -44,6 +47,7 @@ function ConceptCard({
   pending,
   rendered,
   onGenerate,
+  onDelete,
 }: {
   concept: Concept
   index: number
@@ -51,6 +55,7 @@ function ConceptCard({
   pending: boolean
   rendered: boolean
   onGenerate: Props["onGenerate"]
+  onDelete: () => void
 }) {
   const [prompt, setPrompt] = useState(concept.image_prompt ?? "")
   return (
@@ -60,7 +65,10 @@ function ConceptCard({
           <span className="mr-1.5 tabular-nums text-mist/60">{String(index + 1).padStart(2, "0")}</span>
           {concept.name}
         </span>
-        {rendered && <span className="rounded-md bg-ember/10 px-1.5 py-0.5 text-[11px] font-medium text-ember ring-1 ring-ember/25 ring-inset">Rendered</span>}
+        <span className="flex items-center gap-1">
+          {rendered && <span className="rounded-md bg-ember/10 px-1.5 py-0.5 text-[11px] font-medium text-ember ring-1 ring-ember/25 ring-inset">Rendered</span>}
+          <DeleteButton label="concept" disabled={busy} onDelete={onDelete} />
+        </span>
       </div>
       <h3 className="mt-2.5 text-base font-semibold leading-snug">{concept.hook}</h3>
       <p className="mt-2 line-clamp-3 text-sm leading-6 text-mist">{concept.visual_story}</p>

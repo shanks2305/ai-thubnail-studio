@@ -51,6 +51,7 @@ class Settings(BaseSettings):
     max_revisions: int = 2
     pass_score: int = 75
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
+    youtube_api_key: str = ""
 
     @model_validator(mode="after")
     def _require_hosted_providers_in_production(self) -> "Settings":

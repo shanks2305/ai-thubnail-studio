@@ -19,6 +19,13 @@ def read_s3(uri: str) -> bytes:
     return _client().get_object(Bucket=bucket, Key=key)["Body"].read()
 
 
+def delete_s3(uri: str) -> None:
+    bucket, key = _split(uri)
+    if bucket != _bucket():
+        raise ValueError("Asset path is outside storage")
+    _client().delete_object(Bucket=bucket, Key=key)
+
+
 def delete_prefix(project_id: str) -> None:
     client = _client()
     bucket = _bucket()

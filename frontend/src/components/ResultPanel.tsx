@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom"
+import { DeleteButton } from "./DeleteButton"
 import { Icon } from "./Icon"
 import { Spinner } from "./Spinner"
 import type { Concept, Generation } from "../types"
@@ -25,9 +26,11 @@ type Props = {
   imageUrl: string
   passes: number
   concept: Concept | undefined
+  onDelete: () => void
+  deleteDisabled: boolean
 }
 
-export function ResultPanel({ projectId, generation, imageUrl, passes, concept }: Props) {
+export function ResultPanel({ projectId, generation, imageUrl, passes, concept, onDelete, deleteDisabled }: Props) {
   const critique = generation.critique
 
   return (
@@ -58,6 +61,7 @@ export function ResultPanel({ projectId, generation, imageUrl, passes, concept }
           <a href={`/api/generations/${generation.id}/export?format=png`} className="btn-outline">
             <Icon name="download" /> PNG
           </a>
+          <DeleteButton label="thumbnail" disabled={deleteDisabled} onDelete={onDelete} />
         </div>
       </div>
       {critique && critique.issues.length > 0 && (

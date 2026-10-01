@@ -35,6 +35,7 @@ def present_project(project: Project) -> dict:
         "channel_id": project.channel_id,
         "creative_style": project.creative_style or "cinematic",
         "audience_brief": project.audience_brief,
+        "research_brief": project.research_brief,
         "video_brief": project.video_brief,
         "reference_profile": project.reference_profile,
         "hooks": project.hooks or [],
@@ -43,7 +44,8 @@ def present_project(project: Project) -> dict:
         "agent_runs": [_run(run) for run in project.agent_runs],
         "references": [_reference(asset) for asset in project.assets if asset.kind == "reference"],
         "face": _face(project),
-        "people": [_reference(asset) for asset in project.assets if asset.kind in {"person", "video_person"}],
+        "people": [_reference(asset) for asset in _people(project)],
+        "popular": [_reference(asset) for asset in project.assets if asset.kind == "popular"],
         "experiments": _experiments(project),
         "created_at": _utc_iso(project.created_at),
     }
@@ -113,6 +115,13 @@ def _cover_id(project: Project) -> str | None:
         if selected is not None and selected.image_asset_id:
             return selected.image_asset_id
     return next((item.image_asset_id for item in reversed(project.generations) if item.image_asset_id), None)
+
+
+def _people(project: Project) -> list[Asset]:
+    uploaded = [asset for asset in project.assets if asset.kind == "person"]
+    if uploaded:
+        return uploaded
+    return [asset for asset in project.assets if asset.kind == "video_person"]
 
 
 def _face(project: Project) -> dict | None:

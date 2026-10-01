@@ -1,7 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useEffect } from "react"
-import { useParams } from "react-router-dom"
+import { useNavigate, useParams } from "react-router-dom"
 import { api, projectEventsUrl } from "../api"
+import { DeleteButton, reportDelete } from "../components/DeleteButton"
 import { renderedConceptIds } from "../editorState"
 import { AgentTimeline } from "../components/AgentTimeline"
 import { CompareStrip } from "../components/CompareStrip"
@@ -10,6 +11,7 @@ import { ConceptGrid } from "../components/ConceptGrid"
 import { ProjectBrief } from "../components/ProjectBrief"
 import { EmptyCanvas, ResultPanel } from "../components/ResultPanel"
 import { StatusPill } from "../components/StatusPill"
+import { projectsQuery } from "../queries"
 import { TopBar } from "../components/TopBar"
 import type { ProjectDetail } from "../types"
 
@@ -22,6 +24,7 @@ function canvasMessage(project: ProjectDetail) {
 
 export function ProjectPage() {
   const { projectId = "" } = useParams()
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const project = useQuery({
     queryKey: ["project", projectId],
@@ -55,6 +58,24 @@ export function ProjectPage() {
   const directions = useMutation({
     mutationFn: () => api(`/api/projects/${projectId}/directions`, { method: "POST" }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["project", projectId] }),
+  })
+  const removeProject = useMutation({
+    mutationFn: () => api(`/api/projects/${projectId}`, { method: "DELETE" }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: projectsQuery.queryKey })
+      navigate("/")
+    },
+    onError: reportDelete,
+  })
+  const removeConcept = useMutation({
+    mutationFn: (conceptId: string) => api(`/api/concepts/${conceptId}`, { method: "DELETE" }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["project", projectId] }),
+    onError: reportDelete,
+  })
+  const removeGeneration = useMutation({
+    mutationFn: (generationId: string) => api(`/api/generations/${generationId}`, { method: "DELETE" }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["project", projectId] }),
+    onError: reportDelete,
   })
   const renderAll = useMutation({
     mutationFn: () => api(`/api/projects/${projectId}/render-all`, { method: "POST" }),
@@ -90,6 +111,7 @@ export function ProjectPage() {
         <button type="button" className="btn-ghost" disabled={busy} onClick={() => directions.mutate()}>
           New directions
         </button>
+        <DeleteButton label="project" disabled={busy || removeProject.isPending} onDelete={() => removeProject.mutate()} />
       </TopBar>
       <main className="mx-auto grid w-full max-w-7xl gap-6 px-6 py-6 lg:grid-cols-[minmax(0,1fr)_18rem]">
         <div className="min-w-0 space-y-6">
@@ -114,12 +136,20 @@ export function ProjectPage() {
               imageUrl={latest.image_url}
               passes={data.generations.length}
               concept={data.concepts.find((item) => item.id === latest.concept_id)}
+              onDelete={() => removeGeneration.mutate(latest.id)}
+              deleteDisabled={busy}
             />
           ) : (
             <EmptyCanvas message={canvasMessage(data)} busy={data.status === "analyzing" || data.status === "generating"} />
           )}
           {data.generations.length > 1 && (
-            <CompareStrip projectId={projectId} generations={data.generations} concepts={data.concepts} />
+            <CompareStrip
+              projectId={projectId}
+              generations={data.generations}
+              concepts={data.concepts}
+              deleteDisabled={busy}
+              onDelete={(generationId) => removeGeneration.mutate(generationId)}
+            />
           )}
           <StudioTools project={data} />
           {data.concepts.length > 0 && (
@@ -129,6 +159,7 @@ export function ProjectPage() {
               pendingId={generate.isPending ? generate.variables?.conceptId ?? null : null}
               renderedIds={renderedConceptIds(data.generations)}
               onGenerate={(conceptId, prompt) => generate.mutate({ conceptId, prompt })}
+              onDelete={(conceptId) => removeConcept.mutate(conceptId)}
             />
           )}
         </div>

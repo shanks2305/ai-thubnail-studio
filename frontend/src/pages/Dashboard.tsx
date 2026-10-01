@@ -2,6 +2,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useState } from "react"
 import { Link, useSearchParams } from "react-router-dom"
 import { api } from "../api"
+import { reportDelete } from "../components/DeleteButton"
 import { Icon } from "../components/Icon"
 import { ProjectCard, ProjectCardSkeleton } from "../components/ProjectCard"
 import { ProjectStats } from "../components/ProjectStats"
@@ -27,6 +28,15 @@ export function Dashboard() {
   const visible = all.filter(
     (project) => matchesFilter(project, filter) && (!term || `${project.title} ${project.description}`.toLowerCase().includes(term)),
   )
+
+  async function removeProject(project: ProjectSummary) {
+    try {
+      await api(`/api/projects/${project.id}`, { method: "DELETE" })
+      await queryClient.invalidateQueries({ queryKey: projectsQuery.queryKey })
+    } catch (caught) {
+      reportDelete(caught)
+    }
+  }
 
   async function toggleFavorite(project: ProjectSummary) {
     await api(`/api/projects/${project.id}`, {
@@ -76,7 +86,7 @@ export function Dashboard() {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
           {projects.isLoading && [0, 1, 2].map((slot) => <ProjectCardSkeleton key={slot} />)}
           {visible.map((project) => (
-            <ProjectCard key={project.id} project={project} onToggleFavorite={(item) => void toggleFavorite(item)} />
+            <ProjectCard key={project.id} project={project} onToggleFavorite={(item) => void toggleFavorite(item)} onDelete={(item) => void removeProject(item)} />
           ))}
         </div>
 

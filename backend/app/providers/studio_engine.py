@@ -2,6 +2,7 @@ import re
 from typing import Any
 
 from app.domain.styles import style_prompt
+from app.providers.research_fallback import research_from_gathered
 
 
 def run_task(task: str, payload: dict[str, Any]) -> dict[str, Any]:
@@ -9,6 +10,7 @@ def run_task(task: str, payload: dict[str, Any]) -> dict[str, Any]:
         "video_analyst": _video_brief,
         "reference_analyst": _reference_profile,
         "audience_analyst": _audience,
+        "researcher": research_from_gathered,
         "hook_strategist": _hooks,
         "creative_director": _concepts,
         "visual_director": _design_spec,
@@ -82,7 +84,10 @@ def _hooks(payload: dict[str, Any]) -> dict[str, Any]:
     words = [str(word) for word in brief.get("key_entities", [])] or _keywords(str(payload.get("description") or ""))
     description = str(payload.get("description") or "")
     hooks = [{"id": "", "text": text, "angle": angle} for text, angle in _hook_lines(words, description)]
-    return {"hooks": hooks}
+    game = _game_name(payload)
+    if game:
+        hooks.insert(0, {"id": "", "text": game.upper()[:28], "angle": "the game"})
+    return {"hooks": hooks[:4]}
 
 
 def _concepts(payload: dict[str, Any]) -> dict[str, Any]:
@@ -99,6 +104,8 @@ def _concepts(payload: dict[str, Any]) -> dict[str, Any]:
         ("The stakes", "urgency", "Show what changes if the claim is true.", "Calm on the text side, disruption behind the subject."),
     ]
     look = style_prompt(str(payload.get("creative_style") or "cinematic"))
+    game = _game_name(payload)
+    place = f"Inside {game}. " if game else ""
     person = "The creator or a person from the video" if payload.get("has_people") else "A person"
     concepts = []
     for index, (name, emotion, story, composition) in enumerate(frames):
@@ -110,7 +117,7 @@ def _concepts(payload: dict[str, Any]) -> dict[str, Any]:
                 "hook": hook,
                 "visual_story": f"{story} The video is about {topic}.",
                 "subject": f"{person} fills the foreground and expresses {emotion}. {story} No text in the scene.",
-                "background": f"{look} Depth, not a collage of tiny details.",
+                "background": f"{place}{look} Depth, not a collage of tiny details.",
                 "composition": composition,
                 "text": hook,
                 "emotional_direction": emotion,
@@ -154,6 +161,16 @@ def _design_spec(payload: dict[str, Any]) -> dict[str, Any]:
         "palette": [str(color) for color in palette][:4],
         "scrim": False,
     }
+
+
+def _game_name(payload: dict[str, Any]) -> str:
+    research = payload.get("research_brief")
+    if not isinstance(research, dict):
+        return ""
+    game = research.get("game")
+    if not isinstance(game, dict):
+        return ""
+    return str(game.get("name") or "").strip()
 
 
 def _saved_profile(saved: dict[str, Any]) -> dict[str, Any]:

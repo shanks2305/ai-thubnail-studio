@@ -1,6 +1,8 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { api } from "../api"
 import type { ProjectDetail } from "../types"
+import { DeleteButton, reportDelete } from "./DeleteButton"
+import { ResearchNotes } from "./ResearchNotes"
 import { StylePicker, styleLabel, type CreativeStyleId } from "./StylePicker"
 
 export function ProjectBrief({ project }: { project: ProjectDetail }) {
@@ -11,6 +13,11 @@ export function ProjectBrief({ project }: { project: ProjectDetail }) {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["project", project.id] }),
   })
   const busy = project.status === "analyzing" || project.status === "generating"
+  const removeAsset = useMutation({
+    mutationFn: (assetId: string) => api(`/api/assets/${assetId}`, { method: "DELETE" }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["project", project.id] }),
+    onError: reportDelete,
+  })
 
   return (
     <section className="card space-y-4 p-4">
@@ -22,17 +29,17 @@ export function ProjectBrief({ project }: { project: ProjectDetail }) {
         </div>
       </div>
       {project.face && (
-        <div>
-          <p className="label">Creator</p>
-          <img src={project.face.url} alt="Creator" className="mt-2 h-16 w-16 rounded-full object-cover ring-1 ring-line" />
-        </div>
+        <FacePhoto id={project.face.id} url={project.face.url} disabled={busy} onDelete={(id) => removeAsset.mutate(id)} />
       )}
       {(project.people ?? []).length > 0 && (
         <div>
           <p className="label">People in the video</p>
           <div className="mt-2 flex gap-2">
             {(project.people ?? []).map((person) => (
-              <img key={person.id} src={person.url} alt="Person from the video" className="h-16 w-12 rounded-md object-cover ring-1 ring-line" />
+              <div key={person.id} className="relative">
+                <img src={person.url} alt="Person from the video" className="h-16 w-12 rounded-md object-cover ring-1 ring-line" />
+                <DeleteButton label="person" disabled={busy} onDelete={() => removeAsset.mutate(person.id)} className="absolute -right-1 -top-1 bg-ink/80" />
+              </div>
             ))}
           </div>
         </div>
@@ -45,6 +52,12 @@ export function ProjectBrief({ project }: { project: ProjectDetail }) {
           </a>
         </div>
       )}
+      <ResearchNotes
+        brief={project.research_brief}
+        images={project.popular ?? []}
+        removeDisabled={busy}
+        onRemove={(assetId) => removeAsset.mutate(assetId)}
+      />
       {project.audience_brief && (
         <div>
           <p className="label">Audience</p>
@@ -57,11 +70,26 @@ export function ProjectBrief({ project }: { project: ProjectDetail }) {
           <p className="label">References</p>
           <div className="mt-2 grid grid-cols-2 gap-2">
             {project.references.map((reference) => (
-              <img key={reference.id} src={reference.url} alt="Reference thumbnail" className="aspect-video w-full rounded-md object-cover ring-1 ring-line" />
+              <div key={reference.id} className="relative">
+                <img src={reference.url} alt="Reference thumbnail" className="aspect-video w-full rounded-md object-cover ring-1 ring-line" />
+                <DeleteButton label="reference" disabled={busy} onDelete={() => removeAsset.mutate(reference.id)} className="absolute right-1 top-1 bg-ink/80" />
+              </div>
             ))}
           </div>
         </div>
       )}
     </section>
+  )
+}
+
+function FacePhoto({ id, url, disabled, onDelete }: { id: string; url: string; disabled: boolean; onDelete: (id: string) => void }) {
+  return (
+    <div>
+      <p className="label">Creator</p>
+      <div className="relative mt-2 h-16 w-16">
+        <img src={url} alt="Creator" className="h-16 w-16 rounded-full object-cover ring-1 ring-line" />
+        <DeleteButton label="creator photo" disabled={disabled} onDelete={() => onDelete(id)} className="absolute -right-1 -top-1 bg-ink/80" />
+      </div>
+    </div>
   )
 }

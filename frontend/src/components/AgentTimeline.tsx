@@ -4,8 +4,9 @@ import type { AgentRun, ProjectStatus } from "../types"
 
 const STEPS = [
   ["video_analyst", "Understanding the video"],
-  ["reference_analyst", "Studying references"],
   ["audience_analyst", "Reading the audience"],
+  ["researcher", "Researching the video"],
+  ["reference_analyst", "Studying references"],
   ["hook_strategist", "Writing hooks"],
   ["creative_director", "Directing concepts"],
   ["visual_director", "Framing the shot"],
@@ -37,8 +38,8 @@ export function AgentTimeline({ runs, status }: { runs: AgentRun[]; status: Proj
     status === "ready" ||
     runs.some((run) => run.agent === "visual_director" || run.agent === "image_generator" || run.agent === "critic")
   const steps = STEPS.filter(([id], index) => {
-    if (id === "audience_analyst") return latest.has(id) || status === "analyzing"
-    return index < 5 || showRender || latest.has(id)
+    if (id === "audience_analyst" || id === "researcher") return latest.has(id) || status === "analyzing"
+    return index < 6 || showRender || latest.has(id)
   })
   const done = steps.filter(([id]) => latest.get(id)?.status === "completed").length
 
